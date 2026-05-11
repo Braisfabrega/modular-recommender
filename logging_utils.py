@@ -1,18 +1,51 @@
 from __future__ import annotations
 
 import logging
+import os
+from datetime import datetime
 
 
-def build_logger(log_path: str) -> logging.Logger:
-    logger = logging.getLogger("fase1_recommender")
-    logger.setLevel(logging.INFO)
+def build_logger(log_dir: str) -> logging.Logger:
+    """Build and configure the application logger.
+
+    Creates a logger that writes to a timestamped file in ``log_dir`` and
+    to the console.  File handler captures DEBUG and above; console handler
+    captures INFO and above.
+
+    Parameters
+    ----------
+    log_dir : str
+        Directory where the log file will be created.
+
+    Returns
+    -------
+    logging.Logger
+        Configured logger instance named ``"recommender_system"``.
+    """
+    os.makedirs(log_dir, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_path = os.path.join(log_dir, f"log_{timestamp}.txt")
+
+    logger = logging.getLogger("recommender_system")
+    logger.setLevel(logging.DEBUG)
     logger.propagate = False
 
     if logger.handlers:
         logger.handlers.clear()
 
-    file_handler = logging.FileHandler(log_path, encoding="utf-8")
     formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
+
+    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(formatter)
+
     logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+
+    logger.debug("Logger inicialitzat. Fitxer de log: %s", log_path)
     return logger

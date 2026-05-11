@@ -42,7 +42,7 @@ class Books(BaseDataset):
         ratings = pd.read_csv(self.ruta + "/Ratings.csv")
 
         books = books.rename(columns={
-            "Book-ID": "item_id",
+            "ISBN": "item_id",
             "Book-Title": "title"
         })
 

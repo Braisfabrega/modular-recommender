@@ -74,3 +74,16 @@ Traceback (most recent call last):
   File "/home/e.bfabregaf/code/prog/projecte/projectePA/datasets.py", line 123, in _ensure_file
     raise FileNotFoundError(f"No s'ha trobat el fitxer requerit: {path}")
 FileNotFoundError: No s'ha trobat el fitxer requerit: /home/e.bfabregaf/code/prog/projecte/projectePA/dataset/Books/Books.csv
+2026-05-11 12:08:07,877 | INFO | Inici aplicacio. dataset=movies, metode=simple
+2026-05-11 12:08:07,880 | INFO | No hi ha cache per 'movies'. Carregant CSV...
+2026-05-11 12:08:08,251 | INFO | Cache desada: /home/e.bfabregaf/code/prog/projecte/projectePA/dataset/.movies_cache.pkl
+2026-05-11 12:08:20,228 | INFO | Accio Recomanar per usuari 1.
+2026-05-11 12:08:28,337 | INFO | Sortida des del menu d'accions.
+2026-05-11 12:08:53,062 | INFO | Inici aplicacio. dataset=books, metode=collaborative
+2026-05-11 12:08:53,062 | INFO | No hi ha cache per 'books'. Carregant CSV...
+2026-05-11 12:08:56,277 | INFO | Cache desada: /home/e.bfabregaf/code/prog/projecte/projectePA/dataset/.books_cache.pkl
+2026-05-11 12:09:02,824 | INFO | Accio Recomanar per usuari 1.
+2026-05-11 12:09:06,709 | INFO | Accio Avaluar per usuari 1.
+2026-05-11 12:09:19,149 | WARNING | Usuari no trobat: 0
+2026-05-11 12:09:21,747 | WARNING | Usuari no trobat: 0
+2026-05-11 12:09:22,077 | INFO | Sortida de l'aplicacio per entrada buida de user_id.

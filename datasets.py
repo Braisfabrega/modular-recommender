@@ -7,6 +7,24 @@ from typing import Dict, List, Optional, Set, Tuple
 
 
 class Dataset(ABC):
+    """Abstract base class for recommendation datasets.
+
+    Attributes
+    ----------
+    _project_root : str
+        Absolute path to the project root directory.
+    _dataset_name : str
+        Short identifier for this dataset (e.g. ``"movies"``).
+    _items : dict
+        Mapping from item_id to a dict of metadata fields.
+    _known_users : set
+        Set of all user IDs present in the dataset.
+    _user_ratings : dict
+        Mapping from user_id to ``{item_id: rating}``.
+    _item_ratings : dict
+        Mapping from item_id to ``{user_id: rating}``.
+    """
+
     def __init__(self, project_root: str, dataset_name: str) -> None:
         self._project_root = project_root
         self._dataset_name = dataset_name
@@ -26,14 +44,43 @@ class Dataset(ABC):
         raise NotImplementedError
 
     def _load_users(self) -> None:
-        # Optional hook for datasets with an explicit users file.
         return
 
     @abstractmethod
     def format_item_for_display(self, item_id: str) -> str:
+        """Return a human-readable string for ``item_id``.
+
+        Parameters
+        ----------
+        item_id : str
+            Identifier of the item to format.
+
+        Returns
+        -------
+        str
+            Formatted display string.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_item_content_text(self, item_id: str) -> str:
+        """Return the text content used to build TF-IDF vectors for an item.
+
+        Parameters
+        ----------
+        item_id : str
+            Identifier of the item.
+
+        Returns
+        -------
+        str
+            Free-text representation of the item's content features.
+            Returns an empty string when no content is available.
+        """
         raise NotImplementedError
 
     def load(self) -> None:
+        """Load items, users, and ratings from disk, then compute rating bounds."""
         self._load_items()
         self._load_users()
         self._load_ratings()
@@ -124,6 +171,14 @@ class Dataset(ABC):
 
 
 class MovieLensDataset(Dataset):
+    """MovieLens 100k dataset loader.
+
+    Parameters
+    ----------
+    project_root : str
+        Absolute path to the project root directory.
+    """
+
     def __init__(self, project_root: str) -> None:
         super().__init__(project_root, "movies")
         self._dataset_dir = os.path.join(project_root, "dataset", "MovieLens100k")
@@ -181,11 +236,39 @@ class MovieLensDataset(Dataset):
         genres = metadata.get("genres", "Sense generes")
         return f"{title} | {genres}"
 
+    def get_item_content_text(self, item_id: str) -> str:
+        """Return genre string for ``item_id``, with ``|`` replaced by spaces.
+
+        Parameters
+        ----------
+        item_id : str
+            Movie identifier.
+
+        Returns
+        -------
+        str
+            Space-separated genre tokens (e.g. ``"Action Comedy Drama"``).
+        """
+        genres = self._items.get(item_id, {}).get("genres", "")
+        return genres.replace("|", " ")
+
 
 class BooksDataset(Dataset):
-    def __init__(self, project_root: str) -> None:
+    """Book-Crossing dataset loader.
+
+    Parameters
+    ----------
+    project_root : str
+        Absolute path to the project root directory.
+    max_books : int, optional
+        Maximum number of books to load from Books.csv. ``0`` means no limit.
+        Defaults to ``10_000``.
+    """
+
+    def __init__(self, project_root: str, max_books: int = 10_000) -> None:
         super().__init__(project_root, "books")
         self._dataset_dir = os.path.join(project_root, "dataset", "Books")
+        self._max_books = max_books
 
     def _load_items(self) -> None:
         books_path = os.path.join(self._dataset_dir, "Books.csv")
@@ -223,6 +306,9 @@ class BooksDataset(Dataset):
                     "title": row[title_idx].strip(),
                     "author": row[author_idx].strip(),
                 }
+
+                if self._max_books > 0 and len(self._items) >= self._max_books:
+                    break
 
     def _load_users(self) -> None:
         users_path = os.path.join(self._dataset_dir, "Users.csv")
@@ -295,3 +381,18 @@ class BooksDataset(Dataset):
         title = metadata.get("title", "Sense titol")
         author = metadata.get("author", "Autor desconegut")
         return f"{title} | {author}"
+
+    def get_item_content_text(self, item_id: str) -> str:
+        """Return the author name as content text for ``item_id``.
+
+        Parameters
+        ----------
+        item_id : str
+            Book ISBN identifier.
+
+        Returns
+        -------
+        str
+            Author name used as the content feature for TF-IDF.
+        """
+        return self._items.get(item_id, {}).get("author", "")
