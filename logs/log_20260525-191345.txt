@@ -1,0 +1,12 @@
+2026-05-25 19:13:45,452 | DEBUG    | recommender_system | Logger inicialitzat. Fitxer de log: /home/e.bfabregaf/code/prog/projecte/projectePA/logs/log_20260525-191345.txt
+2026-05-25 19:13:45,453 | INFO     | recommender_system | Inici aplicacio. dataset=books, metode=content
+2026-05-25 19:13:45,453 | INFO     | recommender_system | Carregant dataset 'books' des de CSV...
+2026-05-25 19:13:45,475 | INFO     | recommender_system.BooksDataset | CSV de llibres carregat correctament: 10000 items des de '/home/e.bfabregaf/code/prog/projecte/projectePA/dataset/Books/Books.csv'.
+2026-05-25 19:13:46,219 | INFO     | recommender_system.BooksDataset | CSV de valoracions de llibres carregat correctament: 108888 valoracions, 278858 usuaris únics des de '/home/e.bfabregaf/code/prog/projecte/projectePA/dataset/Books/Ratings.csv'.
+2026-05-25 19:13:46,224 | INFO     | recommender_system | Inicialitzant recomanador 'content'...
+2026-05-25 19:13:46,224 | INFO     | recommender_system.ContentBasedRecommender | Preparant ContentBasedRecommender per al dataset 'books_10000'...
+2026-05-25 19:13:46,227 | INFO     | recommender_system.ContentBasedRecommender | Caché HIT — carregat des de: /home/e.bfabregaf/code/prog/projecte/projectePA/dataset/cache/content_books_10000.pkl
+2026-05-25 19:13:46,227 | INFO     | recommender_system.ContentBasedRecommender | ContentBasedRecommender carregat des de caché (10000 ítems indexats, 5575 característiques TF-IDF).
+2026-05-25 19:13:49,312 | INFO     | recommender_system | Accio Recomanar per usuari 276925.
+2026-05-25 19:13:53,375 | INFO     | recommender_system | Accio Avaluar per usuari 276925.
+2026-05-25 19:14:15,535 | INFO     | recommender_system | Sortida de l'aplicacio per entrada buida de user_id.

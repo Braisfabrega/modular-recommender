@@ -1,0 +1,10 @@
+2026-05-25 19:14:51,309 | DEBUG    | recommender_system | Logger inicialitzat. Fitxer de log: /home/e.bfabregaf/code/prog/projecte/projectePA/logs/log_20260525-191451.txt
+2026-05-25 19:14:51,309 | INFO     | recommender_system | Inici aplicacio. dataset=books, metode=simple
+2026-05-25 19:14:51,309 | INFO     | recommender_system | Carregant dataset 'books' des de CSV...
+2026-05-25 19:14:51,336 | INFO     | recommender_system.BooksDataset | CSV de llibres carregat correctament: 10000 items des de '/home/e.bfabregaf/code/prog/projecte/projectePA/dataset/Books/Books.csv'.
+2026-05-25 19:14:52,118 | INFO     | recommender_system.BooksDataset | CSV de valoracions de llibres carregat correctament: 108888 valoracions, 278858 usuaris únics des de '/home/e.bfabregaf/code/prog/projecte/projectePA/dataset/Books/Ratings.csv'.
+2026-05-25 19:14:52,123 | INFO     | recommender_system | Inicialitzant recomanador 'simple'...
+2026-05-25 19:14:52,123 | INFO     | recommender_system.SimpleRecommender | Preparant SimpleRecommender per al dataset 'books_10000' (min_votes=10)...
+2026-05-25 19:14:52,124 | INFO     | recommender_system.SimpleRecommender | Caché HIT — carregat des de: /home/e.bfabregaf/code/prog/projecte/projectePA/dataset/cache/simple_books_10000_minvotes10.pkl
+2026-05-25 19:14:52,124 | INFO     | recommender_system.SimpleRecommender | SimpleRecommender carregat des de caché (2548 ítems puntuats).
+2026-05-25 19:14:52,988 | INFO     | recommender_system | Sortida de l'aplicacio per entrada buida de user_id.

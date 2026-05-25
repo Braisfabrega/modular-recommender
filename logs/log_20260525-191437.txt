@@ -1,0 +1,10 @@
+2026-05-25 19:14:37,161 | DEBUG    | recommender_system | Logger inicialitzat. Fitxer de log: /home/e.bfabregaf/code/prog/projecte/projectePA/logs/log_20260525-191437.txt
+2026-05-25 19:14:37,161 | INFO     | recommender_system | Inici aplicacio. dataset=movies, metode=content
+2026-05-25 19:14:37,161 | INFO     | recommender_system | Carregant dataset 'movies' des de CSV...
+2026-05-25 19:14:37,178 | INFO     | recommender_system.MovieLensDataset | CSV de pel·lícules carregat correctament: 9742 items des de '/home/e.bfabregaf/code/prog/projecte/projectePA/dataset/MovieLens100k/movies.csv'.
+2026-05-25 19:14:37,301 | INFO     | recommender_system.MovieLensDataset | CSV de valoracions carregat correctament: 100836 valoracions, 610 usuaris únics des de '/home/e.bfabregaf/code/prog/projecte/projectePA/dataset/MovieLens100k/ratings.csv'.
+2026-05-25 19:14:37,303 | INFO     | recommender_system | Inicialitzant recomanador 'content'...
+2026-05-25 19:14:37,303 | INFO     | recommender_system.ContentBasedRecommender | Preparant ContentBasedRecommender per al dataset 'movies'...
+2026-05-25 19:14:37,305 | INFO     | recommender_system.ContentBasedRecommender | Caché HIT — carregat des de: /home/e.bfabregaf/code/prog/projecte/projectePA/dataset/cache/content_movies.pkl
+2026-05-25 19:14:37,305 | INFO     | recommender_system.ContentBasedRecommender | ContentBasedRecommender carregat des de caché (9742 ítems indexats, 24 característiques TF-IDF).
+2026-05-25 19:14:38,052 | INFO     | recommender_system | Sortida de l'aplicacio per entrada buida de user_id.

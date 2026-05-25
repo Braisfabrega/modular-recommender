@@ -1,0 +1,10 @@
+2026-05-25 19:14:27,948 | DEBUG    | recommender_system | Logger inicialitzat. Fitxer de log: /home/e.bfabregaf/code/prog/projecte/projectePA/logs/log_20260525-191427.txt
+2026-05-25 19:14:27,948 | INFO     | recommender_system | Inici aplicacio. dataset=movies, metode=collaborative
+2026-05-25 19:14:27,948 | INFO     | recommender_system | Carregant dataset 'movies' des de CSV...
+2026-05-25 19:14:27,960 | INFO     | recommender_system.MovieLensDataset | CSV de pel·lícules carregat correctament: 9742 items des de '/home/e.bfabregaf/code/prog/projecte/projectePA/dataset/MovieLens100k/movies.csv'.
+2026-05-25 19:14:28,074 | INFO     | recommender_system.MovieLensDataset | CSV de valoracions carregat correctament: 100836 valoracions, 610 usuaris únics des de '/home/e.bfabregaf/code/prog/projecte/projectePA/dataset/MovieLens100k/ratings.csv'.
+2026-05-25 19:14:28,077 | INFO     | recommender_system | Inicialitzant recomanador 'collaborative'...
+2026-05-25 19:14:28,077 | INFO     | recommender_system.CollaborativeRecommender | Preparant CollaborativeRecommender per al dataset 'movies' (k=5)...
+2026-05-25 19:14:28,078 | INFO     | recommender_system.CollaborativeRecommender | Caché HIT — carregat des de: /home/e.bfabregaf/code/prog/projecte/projectePA/dataset/cache/collaborative_movies_k5.pkl
+2026-05-25 19:14:28,079 | INFO     | recommender_system.CollaborativeRecommender | CollaborativeRecommender carregat des de caché (610 usuaris, 610 amb veïns).
+2026-05-25 19:14:29,173 | INFO     | recommender_system | Sortida de l'aplicacio per entrada buida de user_id.

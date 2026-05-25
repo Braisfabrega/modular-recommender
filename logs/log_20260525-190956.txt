@@ -1,0 +1,14 @@
+2026-05-25 19:09:56,086 | DEBUG    | recommender_system | Logger inicialitzat. Fitxer de log: /home/e.bfabregaf/code/prog/projecte/projectePA/logs/log_20260525-190956.txt
+2026-05-25 19:09:56,086 | INFO     | recommender_system | Inici aplicacio. dataset=movies, metode=simple
+2026-05-25 19:09:56,086 | INFO     | recommender_system | Carregant dataset 'movies' des de CSV...
+2026-05-25 19:09:56,099 | INFO     | recommender_system.MovieLensDataset | CSV de pel·lícules carregat correctament: 9742 items des de '/home/e.bfabregaf/code/prog/projecte/projectePA/dataset/MovieLens100k/movies.csv'.
+2026-05-25 19:09:56,211 | INFO     | recommender_system.MovieLensDataset | CSV de valoracions carregat correctament: 100836 valoracions, 610 usuaris únics des de '/home/e.bfabregaf/code/prog/projecte/projectePA/dataset/MovieLens100k/ratings.csv'.
+2026-05-25 19:09:56,214 | INFO     | recommender_system | Inicialitzant recomanador 'simple'...
+2026-05-25 19:09:56,214 | INFO     | recommender_system.SimpleRecommender | Preparant SimpleRecommender per al dataset 'movies' (min_votes=10)...
+2026-05-25 19:09:56,214 | INFO     | recommender_system.SimpleRecommender | Caché MISS — fitxer no trobat: /home/e.bfabregaf/code/prog/projecte/projectePA/dataset/cache/simple_movies_minvotes10.pkl
+2026-05-25 19:09:56,214 | INFO     | recommender_system.SimpleRecommender | SimpleRecommender: computant puntuacions des de zero...
+2026-05-25 19:09:56,222 | INFO     | recommender_system.SimpleRecommender | Caché desada correctament: /home/e.bfabregaf/code/prog/projecte/projectePA/dataset/cache/simple_movies_minvotes10.pkl
+2026-05-25 19:09:56,222 | INFO     | recommender_system.SimpleRecommender | SimpleRecommender preparat des de zero (2269 ítems puntuats).
+2026-05-25 19:10:15,571 | INFO     | recommender_system | Accio Recomanar per usuari 1.
+2026-05-25 19:10:19,493 | INFO     | recommender_system | Accio Avaluar per usuari 1.
+2026-05-25 19:10:26,170 | INFO     | recommender_system | Sortida des del menu d'accions.
