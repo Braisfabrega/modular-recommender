@@ -34,7 +34,7 @@ def build_logger(log_dir: str) -> logging.Logger:
     if logger.handlers:
         logger.handlers.clear()
 
-    formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
+    formatter = logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s")
 
     file_handler = logging.FileHandler(log_path, encoding="utf-8")
     file_handler.setLevel(logging.DEBUG)

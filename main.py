@@ -175,25 +175,15 @@ def load_dataset(project_root: str, dataset_key: str, logger) -> Dataset:
     return dataset
 
 
-def load_recommender(
-    project_root: str,
-    dataset_key: str,
-    method_key: str,
-    dataset: Dataset,
-    logger,
-) -> Recommender:
-    """Build a recommender from scratch for the selected dataset.
+def load_recommender(method_key: str, dataset: Dataset, logger) -> Recommender:
+    """Build (or restore from cache) a recommender for the given method and dataset.
 
     Parameters
     ----------
-    project_root : str
-        Absolute path to the project root directory.
-    dataset_key : str
-        Short dataset identifier (e.g. ``"movies"``).
     method_key : str
         Short method identifier (e.g. ``"content"``).
     dataset : Dataset
-        Loaded dataset to bind when building from scratch.
+        Loaded dataset to bind to the recommender.
     logger : logging.Logger
         Logger instance.
 
@@ -202,11 +192,7 @@ def load_recommender(
     Recommender
         Prepared recommender instance.
     """
-    logger.info(
-        "Inicialitzant recomanador per '%s/%s'...",
-        dataset_key,
-        method_key,
-    )
+    logger.info("Inicialitzant recomanador '%s'...", method_key)
     recommender = build_recommender(method_key, dataset)
     return recommender
 
@@ -287,7 +273,7 @@ def main() -> int:
 
     try:
         dataset = load_dataset(project_root, dataset_key, logger)
-        recommender = load_recommender(project_root, dataset_key, method_key, dataset, logger)
+        recommender = load_recommender(method_key, dataset, logger)
     except Exception as exc:  # pylint: disable=broad-except
         logger.exception("Error inicialitzant el sistema.")
         print(f"Error inicialitzant el sistema: {exc}")

@@ -35,7 +35,22 @@ class Dataset(ABC):
         self._item_ratings: Dict[str, Dict[str, float]] = {}
         self._min_rating: Optional[float] = None
         self._max_rating: Optional[float] = None
-        self._logger = logging.getLogger(self.__class__.__name__)
+        self._logger = logging.getLogger(f"recommender_system.{self.__class__.__name__}")
+
+    @abstractmethod
+    def get_cache_key(self) -> str:
+        """Return a unique string that identifies this dataset and its configuration.
+
+        Used to build pickle cache filenames so that caches from different
+        dataset configurations (e.g. different ``max_books`` values) never
+        collide.
+
+        Returns
+        -------
+        str
+            A short alphanumeric key, e.g. ``"movies"`` or ``"books_10000"``.
+        """
+        raise NotImplementedError
 
     @abstractmethod
     def _load_items(self) -> None:
@@ -188,6 +203,9 @@ class MovieLensDataset(Dataset):
         super().__init__(project_root, "movies")
         self._dataset_dir = os.path.join(project_root, "dataset", "MovieLens100k")
 
+    def get_cache_key(self) -> str:
+        return "movies"
+
     def _load_items(self) -> None:
         movies_path = os.path.join(self._dataset_dir, "movies.csv")
         self._ensure_file(movies_path)
@@ -281,6 +299,10 @@ class BooksDataset(Dataset):
         super().__init__(project_root, "books")
         self._dataset_dir = os.path.join(project_root, "dataset", "Books")
         self._max_books = max_books
+
+    def get_cache_key(self) -> str:
+        suffix = "all" if self._max_books == 0 else str(self._max_books)
+        return f"books_{suffix}"
 
     def _load_items(self) -> None:
         books_path = os.path.join(self._dataset_dir, "Books.csv")

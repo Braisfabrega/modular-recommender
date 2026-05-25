@@ -10,7 +10,7 @@ from recommenders import (
     SimpleRecommender,
 )
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("recommender_system.factories")
 
 
 def build_dataset(dataset_key: str, project_root: str) -> Dataset:

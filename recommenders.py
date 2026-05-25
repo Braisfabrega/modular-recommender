@@ -4,13 +4,13 @@ import logging
 import math
 import os
 import pickle
+import tempfile
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 
 from datasets import Dataset
 
@@ -20,23 +20,42 @@ Recommendation = Tuple[str, float]
 
 def _load_pickle_cache(cache_path: str, logger: logging.Logger) -> Optional[Any]:
     if not os.path.exists(cache_path):
+        logger.info("Caché MISS — fitxer no trobat: %s", cache_path)
         return None
 
     try:
         with open(cache_path, "rb") as cache_file:
             payload = pickle.load(cache_file)
-        logger.info("Cache carregada: %s", cache_path)
+        logger.info("Caché HIT — carregat des de: %s", cache_path)
         return payload
     except Exception as exc:  # pylint: disable=broad-except
-        logger.warning("No s'ha pogut carregar la cache %s (%s).", cache_path, exc)
+        logger.warning(
+            "Caché CORRUPTE — error carregant %s (%s). Es recalcularà des de zero.",
+            cache_path,
+            exc,
+        )
         return None
 
 
 def _save_pickle_cache(cache_path: str, payload: Any, logger: logging.Logger) -> None:
-    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
-    with open(cache_path, "wb") as cache_file:
-        pickle.dump(payload, cache_file)
-    logger.info("Cache desada: %s", cache_path)
+    cache_dir = os.path.dirname(cache_path)
+    tmp_path: Optional[str] = None
+    try:
+        os.makedirs(cache_dir, exist_ok=True)
+        # Escriptura atòmica: escrivim a un fitxer temporal i fem rename
+        # per evitar fitxers de caché corromputs si el procés s'interromp.
+        with tempfile.NamedTemporaryFile("wb", dir=cache_dir, delete=False) as tmp:
+            tmp_path = tmp.name
+            pickle.dump(payload, tmp)
+        os.replace(tmp_path, cache_path)
+        logger.info("Caché desada correctament: %s", cache_path)
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.warning("Error desant caché %s: %s", cache_path, exc)
+        if tmp_path is not None and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
 
 class Recommender(ABC):
@@ -58,11 +77,10 @@ class Recommender(ABC):
     def __init__(self, dataset: Dataset) -> None:
         self._dataset = dataset
         self._is_prepared = False
-        self._logger = logging.getLogger(self.__class__.__name__)
+        self._logger = logging.getLogger(f"recommender_system.{self.__class__.__name__}")
 
     def _cache_path(self, filename: str) -> str:
         cache_dir = os.path.join(self._dataset.get_project_root(), "dataset", "cache")
-        os.makedirs(cache_dir, exist_ok=True)
         return os.path.join(cache_dir, filename)
 
     @abstractmethod
@@ -151,7 +169,29 @@ class SimpleRecommender(Recommender):
         self._item_scores: Dict[str, float] = {}
 
     def prepare(self) -> None:
-        """Compute Bayesian-average scores for all eligible items."""
+        """Compute Bayesian-average scores for all eligible items, amb caché pickle."""
+        cache_path = self._cache_path(
+            f"simple_{self._dataset.get_cache_key()}_minvotes{self._min_votes}.pkl"
+        )
+        self._logger.info(
+            "Preparant SimpleRecommender per al dataset '%s' (min_votes=%d)...",
+            self._dataset.get_cache_key(),
+            self._min_votes,
+        )
+
+        cached = _load_pickle_cache(cache_path, self._logger)
+        if isinstance(cached, dict) and "item_scores" in cached:
+            self._item_scores = cached["item_scores"]
+            self._is_prepared = True
+            self._logger.info(
+                "SimpleRecommender carregat des de caché (%d ítems puntuats).",
+                len(self._item_scores),
+            )
+            return
+
+        self._logger.info(
+            "SimpleRecommender: computant puntuacions des de zero..."
+        )
         eligible_items: List[Tuple[str, int, float, float]] = []
         total_rating_sum = 0.0
         total_rating_count = 0
@@ -171,6 +211,7 @@ class SimpleRecommender(Recommender):
         self._item_scores = {}
         if total_rating_count == 0:
             self._is_prepared = True
+            self._logger.info("SimpleRecommender: cap ítem elegible, caché no es desa.")
             return
 
         avg_global = total_rating_sum / total_rating_count
@@ -179,7 +220,12 @@ class SimpleRecommender(Recommender):
             score = ((num_votes / denominator) * avg_item) + ((self._min_votes / denominator) * avg_global)
             self._item_scores[item_id] = score
 
+        _save_pickle_cache(cache_path, {"item_scores": self._item_scores}, self._logger)
         self._is_prepared = True
+        self._logger.info(
+            "SimpleRecommender preparat des de zero (%d ítems puntuats).",
+            len(self._item_scores),
+        )
 
     def recommend(self, user_id: str, top_n: int = 5) -> List[Recommendation]:
         if not self._is_prepared:
@@ -248,16 +294,31 @@ class CollaborativeRecommender(Recommender):
         self._neighbors_cache: Optional[Dict[str, List[Tuple[str, float]]]] = None
 
     def prepare(self) -> None:
-        """Compute per-user mean ratings."""
-        cache_path = self._cache_path(f"collaborative_{self._dataset.get_name()}_k{self._k}.pkl")
+        """Compute per-user mean ratings i veïns, amb caché pickle."""
+        cache_path = self._cache_path(
+            f"collaborative_{self._dataset.get_cache_key()}_k{self._k}.pkl"
+        )
+        self._logger.info(
+            "Preparant CollaborativeRecommender per al dataset '%s' (k=%d)...",
+            self._dataset.get_cache_key(),
+            self._k,
+        )
+
         cached = _load_pickle_cache(cache_path, self._logger)
         if isinstance(cached, dict) and "user_means" in cached and "neighbors" in cached:
             self._user_means = cached["user_means"]
             self._neighbors_cache = cached["neighbors"]
             self._is_prepared = True
+            self._logger.info(
+                "CollaborativeRecommender carregat des de caché (%d usuaris, %d amb veïns).",
+                len(self._user_means),
+                len(self._neighbors_cache),
+            )
             return
 
-        # Cache miss: compute statistics once and persist them.
+        self._logger.info(
+            "CollaborativeRecommender: computant mitjanes i veïns des de zero..."
+        )
         self._user_means = {}
         for user_id in self._dataset.get_user_ids():
             avg_user = self._dataset.get_user_average(user_id)
@@ -270,6 +331,11 @@ class CollaborativeRecommender(Recommender):
             self._logger,
         )
         self._is_prepared = True
+        self._logger.info(
+            "CollaborativeRecommender preparat des de zero (%d usuaris, %d amb veïns).",
+            len(self._user_means),
+            len(self._neighbors_cache),
+        )
 
     def _build_neighbors_cache(self) -> Dict[str, List[Tuple[str, float]]]:
         stats: Dict[str, Dict[str, List[float]]] = defaultdict(
@@ -460,8 +526,9 @@ class ContentBasedRecommender(Recommender):
     Builds a TF-IDF matrix from each item's textual content (e.g. genres for
     MovieLens, author for Books).  A user profile is computed as the
     rating-weighted average of the TF-IDF vectors of items the user has rated.
-    Candidates are ranked by cosine similarity between the user profile and
-    each unrated item vector, scaled to the dataset's maximum rating.
+    Candidates are ranked by dot-product similarity (S_u = M · Q_u^T) between
+    the user profile and each unrated item vector, scaled to the dataset's
+    maximum rating.
 
     Parameters
     ----------
@@ -488,8 +555,13 @@ class ContentBasedRecommender(Recommender):
         self._index_item: List[str] = []
 
     def prepare(self) -> None:
-        """Fit TF-IDF vectorizer on all item content texts."""
-        cache_path = self._cache_path(f"content_{self._dataset.get_name()}.pkl")
+        """Fit TF-IDF vectorizer on all item content texts, amb caché pickle."""
+        cache_path = self._cache_path(f"content_{self._dataset.get_cache_key()}.pkl")
+        self._logger.info(
+            "Preparant ContentBasedRecommender per al dataset '%s'...",
+            self._dataset.get_cache_key(),
+        )
+
         cached = _load_pickle_cache(cache_path, self._logger)
         if isinstance(cached, dict) and {
             "vectorizer",
@@ -502,9 +574,17 @@ class ContentBasedRecommender(Recommender):
             self._item_index = cached["item_index"]
             self._index_item = cached["index_item"]
             self._is_prepared = True
+            self._logger.info(
+                "ContentBasedRecommender carregat des de caché "
+                "(%d ítems indexats, %d característiques TF-IDF).",
+                self._tfidf_matrix.shape[0],
+                self._tfidf_matrix.shape[1],
+            )
             return
 
-        # Cache miss: compute the TF-IDF matrix once and persist it.
+        self._logger.info(
+            "ContentBasedRecommender: construint matriu TF-IDF des de zero..."
+        )
         texts: List[str] = []
         valid_ids: List[str] = []
 
@@ -516,6 +596,7 @@ class ContentBasedRecommender(Recommender):
 
         if not texts:
             self._is_prepared = True
+            self._logger.info("ContentBasedRecommender: cap text de contingut disponible, caché no es desa.")
             return
 
         self._vectorizer = TfidfVectorizer()
@@ -537,6 +618,41 @@ class ContentBasedRecommender(Recommender):
             self._logger,
         )
         self._is_prepared = True
+        self._logger.info(
+            "ContentBasedRecommender preparat des de zero "
+            "(%d ítems indexats, %d característiques TF-IDF).",
+            self._tfidf_matrix.shape[0],
+            self._tfidf_matrix.shape[1],
+        )
+
+    def _compute_similarity(
+        self,
+        user_profile: np.ndarray,
+        item_vector_or_matrix,
+    ) -> np.ndarray:
+        """Compute raw dot-product similarity following S_u = M · Q_u^T.
+
+        No normalisation is applied — this is a pure inner-product as required
+        by the project formula.  The method handles both the full-matrix case
+        (all items at once) and the single-item case transparently via the
+        ``@`` operator.
+
+        Parameters
+        ----------
+        user_profile : np.ndarray
+            Dense profile vector of shape ``(n_features,)``.
+        item_vector_or_matrix : np.ndarray or scipy sparse matrix
+            Either a 1-D item vector ``(n_features,)`` for a single item, or
+            the full TF-IDF matrix of shape ``(n_items, n_features)`` for all
+            items at once.
+
+        Returns
+        -------
+        np.ndarray
+            1-D array of similarity scores — shape ``(n_items,)`` for the
+            matrix case, or a scalar for the single-vector case.
+        """
+        return item_vector_or_matrix @ user_profile
 
     def _compute_user_profile(self, user_id: str) -> Optional[np.ndarray]:
         """Return the rating-weighted mean TF-IDF vector for *user_id*.
@@ -588,7 +704,7 @@ class ContentBasedRecommender(Recommender):
 
         _, max_rating = self._dataset.get_rating_bounds()
 
-        sims = cosine_similarity(user_profile.reshape(1, -1), self._tfidf_matrix)[0]
+        sims = self._compute_similarity(user_profile, self._tfidf_matrix)
 
         candidates: List[Recommendation] = []
         for idx, item_id in enumerate(self._index_item):
@@ -605,7 +721,7 @@ class ContentBasedRecommender(Recommender):
     def predict_rating(self, user_id: str, item_id: str) -> Optional[float]:
         """Predict the rating *user_id* would give *item_id* via content similarity.
 
-        The prediction is ``cosine_similarity(user_profile, item_vector) * max_rating``.
+        The prediction is ``dot(user_profile, item_vector) * max_rating``.
 
         Parameters
         ----------
@@ -636,11 +752,5 @@ class ContentBasedRecommender(Recommender):
 
         _, max_rating = self._dataset.get_rating_bounds()
         item_vec = self._tfidf_matrix[idx].toarray().flatten()
-
-        norm_profile = np.linalg.norm(user_profile)
-        norm_item = np.linalg.norm(item_vec)
-        if norm_profile == 0 or norm_item == 0:
-            return None
-
-        sim = float(np.dot(user_profile, item_vec) / (norm_profile * norm_item))
+        sim = float(self._compute_similarity(user_profile, item_vec))
         return sim * max_rating
