@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from datasets import BooksDataset, Dataset, MovieLensDataset
 from recommenders import (
     CollaborativeRecommender,
@@ -7,6 +9,8 @@ from recommenders import (
     Recommender,
     SimpleRecommender,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def build_dataset(dataset_key: str, project_root: str) -> Dataset:
@@ -34,6 +38,7 @@ def build_dataset(dataset_key: str, project_root: str) -> Dataset:
     elif dataset_key == "books":
         dataset = BooksDataset(project_root, max_books=10_000)
     else:
+        logger.error("Error: el dataset '%s' no és suportat. Opcions vàlides: movies, books.", dataset_key)
         raise ValueError(f"Dataset no suportat: {dataset_key}")
 
     dataset.load()
@@ -67,6 +72,7 @@ def build_recommender(method_key: str, dataset: Dataset) -> Recommender:
     elif method_key == "content":
         recommender = ContentBasedRecommender(dataset)
     else:
+        logger.error("Error: el mètode '%s' no és suportat. Opcions vàlides: simple, collaborative, content.", method_key)
         raise ValueError(f"Metode no suportat: {method_key}")
 
     recommender.prepare()

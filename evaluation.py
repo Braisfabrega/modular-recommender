@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import math
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
+
+import matplotlib.pyplot as plt
 
 from datasets import Dataset
 from recommenders import Recommender
@@ -104,3 +106,83 @@ def evaluate_user(
         return None, None
 
     return mae(preds, acts), rmse(preds, acts)
+
+
+def plot_evaluation(
+    mae_dict: Dict[str, float],
+    rmse_dict: Dict[str, float],
+) -> None:
+    """Display a grouped bar chart comparing MAE and RMSE across recommenders.
+
+    Parameters
+    ----------
+    mae_dict : dict[str, float]
+        Mapping from recommender name to its Mean Absolute Error.
+    rmse_dict : dict[str, float]
+        Mapping from recommender name to its Root Mean Square Error.
+        Keys should match those in *mae_dict*.
+
+    Notes
+    -----
+    The function calls ``plt.show()`` so the chart opens in a window (or is
+    rendered inline when running inside a Jupyter notebook).
+
+    Examples
+    --------
+    >>> plot_evaluation({"SVD": 0.72, "KNN": 0.85}, {"SVD": 0.91, "KNN": 1.02})
+    """
+    labels = list(mae_dict.keys())
+    mae_values = [mae_dict[k] for k in labels]
+    rmse_values = [rmse_dict[k] for k in labels]
+
+    x = range(len(labels))
+    bar_width = 0.35
+
+    _, ax = plt.subplots(figsize=(max(6, len(labels) * 1.5), 5))
+
+    bars_mae = ax.bar(
+        [i - bar_width / 2 for i in x],
+        mae_values,
+        width=bar_width,
+        label="MAE",
+        color="#4C72B0",
+    )
+    bars_rmse = ax.bar(
+        [i + bar_width / 2 for i in x],
+        rmse_values,
+        width=bar_width,
+        label="RMSE",
+        color="#DD8452",
+    )
+
+    # Annotate each bar with its numeric value
+    for bar in bars_mae:
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.005,
+            f"{bar.get_height():.4f}",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+        )
+    for bar in bars_rmse:
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.005,
+            f"{bar.get_height():.4f}",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+        )
+
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(labels, fontsize=11)
+    ax.set_ylabel("Error", fontsize=11)
+    ax.set_title("Evaluation: MAE and RMSE by Recommender", fontsize=13)
+    ax.legend()
+    ax.set_ylim(0, max(rmse_values + mae_values) * 1.25)
+    ax.yaxis.grid(True, linestyle="--", alpha=0.6)
+    ax.set_axisbelow(True)
+
+    plt.tight_layout()
+    plt.show()

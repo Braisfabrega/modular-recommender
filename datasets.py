@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import logging
 import os
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Set, Tuple
@@ -34,6 +35,7 @@ class Dataset(ABC):
         self._item_ratings: Dict[str, Dict[str, float]] = {}
         self._min_rating: Optional[float] = None
         self._max_rating: Optional[float] = None
+        self._logger = logging.getLogger(self.__class__.__name__)
 
     @abstractmethod
     def _load_items(self) -> None:
@@ -112,6 +114,9 @@ class Dataset(ABC):
 
     def get_name(self) -> str:
         return self._dataset_name
+
+    def get_project_root(self) -> str:
+        return self._project_root
 
     def get_user_ids(self) -> List[str]:
         return sorted(self._known_users, key=self._sort_user_id)
@@ -202,6 +207,7 @@ class MovieLensDataset(Dataset):
                     "title": title,
                     "genres": genres,
                 }
+        self._logger.info("CSV de pel·lícules carregat correctament: %d items des de '%s'.", len(self._items), movies_path)
 
     def _load_ratings(self) -> None:
         ratings_path = os.path.join(self._dataset_dir, "ratings.csv")
@@ -229,6 +235,12 @@ class MovieLensDataset(Dataset):
                     continue
 
                 self._register_rating(user_id, item_id, rating)
+
+        total_ratings = sum(len(v) for v in self._user_ratings.values())
+        self._logger.info(
+            "CSV de valoracions carregat correctament: %d valoracions, %d usuaris únics des de '%s'.",
+            total_ratings, len(self._known_users), ratings_path,
+        )
 
     def format_item_for_display(self, item_id: str) -> str:
         metadata = self.get_item_metadata(item_id)
@@ -310,6 +322,8 @@ class BooksDataset(Dataset):
                 if self._max_books > 0 and len(self._items) >= self._max_books:
                     break
 
+        self._logger.info("CSV de llibres carregat correctament: %d items des de '%s'.", len(self._items), books_path)
+
     def _load_users(self) -> None:
         users_path = os.path.join(self._dataset_dir, "Users.csv")
         self._ensure_file(users_path)
@@ -375,6 +389,12 @@ class BooksDataset(Dataset):
                     continue
 
                 self._register_rating(user_id, item_id, rating)
+
+        total_ratings = sum(len(v) for v in self._user_ratings.values())
+        self._logger.info(
+            "CSV de valoracions de llibres carregat correctament: %d valoracions, %d usuaris únics des de '%s'.",
+            total_ratings, len(self._known_users), ratings_path,
+        )
 
     def format_item_for_display(self, item_id: str) -> str:
         metadata = self.get_item_metadata(item_id)

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 import math
+import os
+import pickle
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -13,6 +16,27 @@ from datasets import Dataset
 
 
 Recommendation = Tuple[str, float]
+
+
+def _load_pickle_cache(cache_path: str, logger: logging.Logger) -> Optional[Any]:
+    if not os.path.exists(cache_path):
+        return None
+
+    try:
+        with open(cache_path, "rb") as cache_file:
+            payload = pickle.load(cache_file)
+        logger.info("Cache carregada: %s", cache_path)
+        return payload
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.warning("No s'ha pogut carregar la cache %s (%s).", cache_path, exc)
+        return None
+
+
+def _save_pickle_cache(cache_path: str, payload: Any, logger: logging.Logger) -> None:
+    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+    with open(cache_path, "wb") as cache_file:
+        pickle.dump(payload, cache_file)
+    logger.info("Cache desada: %s", cache_path)
 
 
 class Recommender(ABC):
@@ -34,6 +58,12 @@ class Recommender(ABC):
     def __init__(self, dataset: Dataset) -> None:
         self._dataset = dataset
         self._is_prepared = False
+        self._logger = logging.getLogger(self.__class__.__name__)
+
+    def _cache_path(self, filename: str) -> str:
+        cache_dir = os.path.join(self._dataset.get_project_root(), "dataset", "cache")
+        os.makedirs(cache_dir, exist_ok=True)
+        return os.path.join(cache_dir, filename)
 
     @abstractmethod
     def prepare(self) -> None:
@@ -207,23 +237,86 @@ class CollaborativeRecommender(Recommender):
         Neighbourhood size.
     _user_means : dict
         Mapping from user_id to that user's average rating.
+    _neighbors_cache : dict or None
+        Mapping from user_id to ``[(neighbor_id, similarity), ...]``.
     """
 
     def __init__(self, dataset: Dataset, k: int = 5) -> None:
         super().__init__(dataset)
         self._k = k
         self._user_means: Dict[str, float] = {}
+        self._neighbors_cache: Optional[Dict[str, List[Tuple[str, float]]]] = None
 
     def prepare(self) -> None:
         """Compute per-user mean ratings."""
+        cache_path = self._cache_path(f"collaborative_{self._dataset.get_name()}_k{self._k}.pkl")
+        cached = _load_pickle_cache(cache_path, self._logger)
+        if isinstance(cached, dict) and "user_means" in cached and "neighbors" in cached:
+            self._user_means = cached["user_means"]
+            self._neighbors_cache = cached["neighbors"]
+            self._is_prepared = True
+            return
+
+        # Cache miss: compute statistics once and persist them.
         self._user_means = {}
         for user_id in self._dataset.get_user_ids():
             avg_user = self._dataset.get_user_average(user_id)
             if avg_user is not None:
                 self._user_means[user_id] = avg_user
+        self._neighbors_cache = self._build_neighbors_cache()
+        _save_pickle_cache(
+            cache_path,
+            {"user_means": self._user_means, "neighbors": self._neighbors_cache},
+            self._logger,
+        )
         self._is_prepared = True
 
+    def _build_neighbors_cache(self) -> Dict[str, List[Tuple[str, float]]]:
+        stats: Dict[str, Dict[str, List[float]]] = defaultdict(
+            lambda: defaultdict(lambda: [0.0, 0.0, 0.0])
+        )
+
+        for item_id in self._dataset.get_item_ids():
+            item_ratings = self._dataset.get_item_user_ratings(item_id)
+            if len(item_ratings) < 2:
+                continue
+
+            users = list(item_ratings.items())
+            for idx_u in range(len(users)):
+                user_u, rating_u = users[idx_u]
+                for idx_v in range(idx_u + 1, len(users)):
+                    user_v, rating_v = users[idx_v]
+                    stats[user_u][user_v][0] += rating_u * rating_v
+                    stats[user_u][user_v][1] += rating_u * rating_u
+                    stats[user_u][user_v][2] += rating_v * rating_v
+                    stats[user_v][user_u][0] += rating_u * rating_v
+                    stats[user_v][user_u][1] += rating_v * rating_v
+                    stats[user_v][user_u][2] += rating_u * rating_u
+
+        neighbors_cache: Dict[str, List[Tuple[str, float]]] = {}
+        for user_id, neighbor_stats in stats.items():
+            neighbors: List[Tuple[str, float]] = []
+            for other_user, (dot, norm_u, norm_v) in neighbor_stats.items():
+                denominator = math.sqrt(norm_u) * math.sqrt(norm_v)
+                if denominator == 0:
+                    continue
+                similarity = dot / denominator
+                if similarity <= 0:
+                    continue
+                neighbors.append((other_user, similarity))
+            neighbors.sort(key=lambda item: (-item[1], item[0]))
+            neighbors_cache[user_id] = neighbors[: self._k]
+            self._logger.debug(
+                "Calculant similitud per a l'usuari %s: %d veïns seleccionats.",
+                user_id, len(neighbors_cache[user_id]),
+            )
+
+        return neighbors_cache
+
     def _top_k_neighbors(self, user_id: str) -> List[Tuple[str, float]]:
+        if self._neighbors_cache is not None:
+            return self._neighbors_cache.get(user_id, [])
+
         target_ratings = self._dataset.get_user_ratings(user_id)
         if not target_ratings:
             return []
@@ -396,6 +489,22 @@ class ContentBasedRecommender(Recommender):
 
     def prepare(self) -> None:
         """Fit TF-IDF vectorizer on all item content texts."""
+        cache_path = self._cache_path(f"content_{self._dataset.get_name()}.pkl")
+        cached = _load_pickle_cache(cache_path, self._logger)
+        if isinstance(cached, dict) and {
+            "vectorizer",
+            "tfidf_matrix",
+            "item_index",
+            "index_item",
+        }.issubset(cached):
+            self._vectorizer = cached["vectorizer"]
+            self._tfidf_matrix = cached["tfidf_matrix"]
+            self._item_index = cached["item_index"]
+            self._index_item = cached["index_item"]
+            self._is_prepared = True
+            return
+
+        # Cache miss: compute the TF-IDF matrix once and persist it.
         texts: List[str] = []
         valid_ids: List[str] = []
 
@@ -413,6 +522,20 @@ class ContentBasedRecommender(Recommender):
         self._tfidf_matrix = self._vectorizer.fit_transform(texts)
         self._index_item = valid_ids
         self._item_index = {item_id: idx for idx, item_id in enumerate(valid_ids)}
+        self._logger.debug(
+            "Matriu TF-IDF generada amb forma %s (%d items, %d característiques).",
+            str(self._tfidf_matrix.shape), self._tfidf_matrix.shape[0], self._tfidf_matrix.shape[1],
+        )
+        _save_pickle_cache(
+            cache_path,
+            {
+                "vectorizer": self._vectorizer,
+                "tfidf_matrix": self._tfidf_matrix,
+                "item_index": self._item_index,
+                "index_item": self._index_item,
+            },
+            self._logger,
+        )
         self._is_prepared = True
 
     def _compute_user_profile(self, user_id: str) -> Optional[np.ndarray]:

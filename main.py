@@ -3,17 +3,8 @@ from __future__ import annotations
 import os
 import sys
 from typing import List, Tuple
-
-from cache_utils import (
-    dataset_cache_path,
-    load_cached_dataset,
-    load_cached_recommender,
-    recommender_cache_path,
-    save_dataset_cache,
-    save_recommender_cache,
-)
 from datasets import Dataset
-from evaluation import evaluate_user
+from evaluation import evaluate_user, plot_evaluation
 from factories import build_dataset, build_recommender
 from logging_utils import build_logger
 from recommenders import Recommender
@@ -21,6 +12,14 @@ from recommenders import Recommender
 
 VALID_DATASETS = {"movies", "books"}
 VALID_METHODS = {"simple", "collaborative", "content"}
+
+
+ALL_METHODS = ["simple", "collaborative", "content"]
+METHOD_LABELS = {
+    "simple": "Simple",
+    "collaborative": "Colaboratiu",
+    "content": "Contingut",
+}
 
 
 def print_usage() -> None:
@@ -33,19 +32,26 @@ def read_action() -> str:
     print("\nAccions disponibles:")
     print("  1) Recomanar")
     print("  2) Avaluar")
-    print("  3) Sortir")
+    print("  3) Comparar tots els metodes")
+    print("  4) Sortir")
 
-    action = input("Escull una opcio (1/2/3): ").strip().lower()
+    action = input("Escull una opcio (1/2/3/4): ").strip().lower()
     if action in {"1", "recomanar", "recommend"}:
         return "recommend"
     if action in {"2", "avaluar", "evaluate"}:
         return "evaluate"
-    if action in {"3", "sortir", "exit"}:
+    if action in {"3", "comparar", "compare"}:
+        return "compare"
+    if action in {"4", "sortir", "exit"}:
         return "exit"
     return "invalid"
 
 
-def show_recommendations(dataset: Dataset, recommendations: List[Tuple[str, float]]) -> None:
+def show_recommendations(
+    dataset: Dataset,
+    recommendations: List[Tuple[str, float]],
+    N: int = 5,
+) -> None:
     """Print the top-N recommendations for a user.
 
     Parameters
@@ -54,12 +60,15 @@ def show_recommendations(dataset: Dataset, recommendations: List[Tuple[str, floa
         Dataset used to format item display strings.
     recommendations : list of (str, float)
         Ordered list of ``(item_id, score)`` pairs.
+    N : int, optional
+        Maximum number of recommendations to display.  Defaults to ``5``.
     """
     if not recommendations:
         print("No hi ha recomanacions disponibles per aquest usuari.")
         return
 
-    print("\nTop 5 recomanacions:")
+    recommendations = recommendations[:N]
+    print(f"\nTop {N} recomanacions:")
     for idx, (item_id, score) in enumerate(recommendations, start=1):
         item_info = dataset.format_item_for_display(item_id)
         print(f"{idx}. {item_info} (id={item_id}, score={score:.3f})")
@@ -89,8 +98,63 @@ def show_evaluation(dataset: Dataset, recommender: Recommender, user_id: str) ->
     print(f"  RMSE = {rmse_score:.4f}")
 
 
+def show_comparison(dataset: Dataset, user_id: str, logger) -> None:
+    """Build all three recommenders and compare their MAE/RMSE for *user_id*.
+
+    For each method (Simple, Collaborative, Content) the recommender is
+    instantiated via :func:`~factories.build_recommender` (cached builds are
+    reused), evaluated with :func:`~evaluation.evaluate_user`, and the results
+    are printed as a table and displayed as a bar chart.
+
+    Parameters
+    ----------
+    dataset : Dataset
+        Loaded dataset containing ground-truth ratings.
+    user_id : str
+        Target user identifier.
+    logger : logging.Logger
+        Logger instance.
+    """
+    print("\nComparant tots els metodes (pot tardar uns minuts)...")
+
+    mae_dict: dict = {}
+    rmse_dict: dict = {}
+
+    for method_key in ALL_METHODS:
+        label = METHOD_LABELS[method_key]
+        print(f"  [{label}] Preparant...", end=" ", flush=True)
+        try:
+            rec = build_recommender(method_key, dataset)
+            mae_score, rmse_score = evaluate_user(rec, dataset, user_id)
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.warning("Error avaluant %s: %s", method_key, exc)
+            print(f"error: {exc}")
+            continue
+
+        if mae_score is None or rmse_score is None:
+            print("no hi ha prou dades per avaluar.")
+            continue
+
+        mae_dict[label] = mae_score
+        rmse_dict[label] = rmse_score
+        print(f"MAE={mae_score:.4f}  RMSE={rmse_score:.4f}")
+
+    if not mae_dict:
+        print("No s'han pogut calcular metriques per cap metode.")
+        return
+
+    col_w = 15
+    print(f"\nResultats de comparacio per l'usuari {user_id}:")
+    print(f"  {'Metode':<{col_w}} {'MAE':>8} {'RMSE':>8}")
+    print(f"  {'-' * col_w} {'-' * 8} {'-' * 8}")
+    for label in mae_dict:
+        print(f"  {label:<{col_w}} {mae_dict[label]:>8.4f} {rmse_dict[label]:>8.4f}")
+
+    plot_evaluation(mae_dict, rmse_dict)
+
+
 def load_dataset(project_root: str, dataset_key: str, logger) -> Dataset:
-    """Load a dataset from cache or from CSV files.
+    """Load a dataset from CSV files.
 
     Parameters
     ----------
@@ -106,14 +170,8 @@ def load_dataset(project_root: str, dataset_key: str, logger) -> Dataset:
     Dataset
         Fully loaded dataset instance.
     """
-    cache_path = dataset_cache_path(project_root, dataset_key)
-    dataset = load_cached_dataset(cache_path, logger)
-    if dataset is not None:
-        return dataset
-
-    logger.info("No hi ha cache per '%s'. Carregant CSV...", dataset_key)
+    logger.info("Carregant dataset '%s' des de CSV...", dataset_key)
     dataset = build_dataset(dataset_key, project_root)
-    save_dataset_cache(dataset, cache_path, logger)
     return dataset
 
 
@@ -124,7 +182,7 @@ def load_recommender(
     dataset: Dataset,
     logger,
 ) -> Recommender:
-    """Load a prepared recommender from a ``.dat`` file, or build and save one.
+    """Build a recommender from scratch for the selected dataset.
 
     Parameters
     ----------
@@ -144,18 +202,12 @@ def load_recommender(
     Recommender
         Prepared recommender instance.
     """
-    cache_path = recommender_cache_path(project_root, dataset_key, method_key)
-    recommender = load_cached_recommender(cache_path, logger)
-    if recommender is not None:
-        return recommender
-
     logger.info(
-        "No hi ha cache de recomanador per '%s/%s'. Inicialitzant...",
+        "Inicialitzant recomanador per '%s/%s'...",
         dataset_key,
         method_key,
     )
     recommender = build_recommender(method_key, dataset)
-    save_recommender_cache(recommender, cache_path, logger)
     return recommender
 
 
@@ -184,7 +236,7 @@ def run_interactive_loop(dataset: Dataset, recommender: Recommender, logger) -> 
             return 0
 
         if not dataset.has_user(user_id):
-            logger.warning("Usuari no trobat: %s", user_id)
+            logger.error("Error: l'ID d'usuari introduït no existeix al dataset: %s", user_id)
             print("Aquest usuari no existeix al dataset seleccionat.")
             continue
 
@@ -210,6 +262,11 @@ def run_interactive_loop(dataset: Dataset, recommender: Recommender, logger) -> 
                 show_recommendations(dataset, recommendations)
                 break
 
+            if action == "compare":
+                logger.info("Accio Comparar tots els metodes per usuari %s.", user_id)
+                show_comparison(dataset, user_id, logger)
+                break
+
 
 def main() -> int:
     if len(sys.argv) != 3:
@@ -224,7 +281,7 @@ def main() -> int:
         return 1
 
     project_root = os.path.dirname(os.path.abspath(__file__))
-    log_dir = project_root
+    log_dir = project_root+"/logs"
     logger = build_logger(log_dir)
     logger.info("Inici aplicacio. dataset=%s, metode=%s", dataset_key, method_key)
 
