@@ -108,8 +108,8 @@ classDiagram
     +get_item_content_text(item_id) str
   }
 
-  Dataset <|-- MovieLensDataset
-  Dataset <|-- BooksDataset
+  Dataset <|-- MovieLensDataset : extends
+  Dataset <|-- BooksDataset : extends
 
   class Recommender {
     <<abstract>>
@@ -147,11 +147,11 @@ classDiagram
     +predict_rating(user_id, item_id) float
   }
 
-  Recommender <|-- SimpleRecommender
-  Recommender <|-- CollaborativeRecommender
-  Recommender <|-- ContentBasedRecommender
+  Recommender <|-- SimpleRecommender : extends
+  Recommender <|-- CollaborativeRecommender : extends
+  Recommender <|-- ContentBasedRecommender : extends
 
-  Recommender --> Dataset : uses
+  Recommender --> Dataset : 1
 ```
 
 ## Diagramas de secuencia (6 casos)
