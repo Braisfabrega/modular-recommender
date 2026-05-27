@@ -154,6 +154,224 @@ classDiagram
   Recommender --> Dataset : uses
 ```
 
+## Diagramas de secuencia (6 casos)
+
+### Books + Simple (primero)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Usuario
+  participant Main as main.py
+  participant Logger as logging_utils.build_logger
+  participant Factory as factories.build_dataset
+  participant Dataset as BooksDataset
+  participant RecFactory as factories.build_recommender
+  participant Recommender as SimpleRecommender
+  participant Cache as dataset/cache (pickle)
+
+  Usuario->>Main: Ejecuta `python main.py books simple`
+  Main->>Logger: build_logger(log_dir)
+  Main->>Factory: build_dataset("books", project_root)
+  Factory->>Dataset: BooksDataset(...)
+  Dataset->>Dataset: load() = _load_items/_load_users/_load_ratings
+  Main->>RecFactory: build_recommender("simple", dataset)
+  RecFactory->>Recommender: SimpleRecommender(dataset)
+  Recommender->>Recommender: prepare()
+  Recommender->>Cache: _load_pickle_cache(...)
+  alt cache HIT
+    Cache-->>Recommender: item_scores
+  else cache MISS
+    Recommender->>Dataset: get_item_ids/get_item_user_ratings
+    Recommender->>Cache: _save_pickle_cache(...)
+  end
+  Usuario->>Main: Accion Recomendar (user_id)
+  Main->>Recommender: recommend(user_id, top_n)
+  Recommender->>Dataset: get_user_rated_items/get_item_average
+  Recommender-->>Main: [(item_id, score)]
+  Main-->>Usuario: Lista de recomendaciones
+```
+
+### Books + Collaborative
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Usuario
+  participant Main as main.py
+  participant Logger as logging_utils.build_logger
+  participant Factory as factories.build_dataset
+  participant Dataset as BooksDataset
+  participant RecFactory as factories.build_recommender
+  participant Recommender as CollaborativeRecommender
+  participant Cache as dataset/cache (pickle)
+
+  Usuario->>Main: Ejecuta `python main.py books collaborative`
+  Main->>Logger: build_logger(log_dir)
+  Main->>Factory: build_dataset("books", project_root)
+  Factory->>Dataset: BooksDataset(...)
+  Dataset->>Dataset: load() = _load_items/_load_users/_load_ratings
+  Main->>RecFactory: build_recommender("collaborative", dataset)
+  RecFactory->>Recommender: CollaborativeRecommender(dataset)
+  Recommender->>Recommender: prepare()
+  Recommender->>Cache: _load_pickle_cache(...)
+  alt cache HIT
+    Cache-->>Recommender: user_means, neighbors
+  else cache MISS
+    Recommender->>Dataset: get_user_ids/get_item_ids/get_item_user_ratings
+    Recommender->>Cache: _save_pickle_cache(...)
+  end
+  Usuario->>Main: Accion Recomendar (user_id)
+  Main->>Recommender: recommend(user_id, top_n)
+  Recommender->>Dataset: get_user_rated_items/get_rating/get_rating_bounds
+  Recommender-->>Main: [(item_id, score)]
+  Main-->>Usuario: Lista de recomendaciones
+```
+
+### Books + Content
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Usuario
+  participant Main as main.py
+  participant Logger as logging_utils.build_logger
+  participant Factory as factories.build_dataset
+  participant Dataset as BooksDataset
+  participant RecFactory as factories.build_recommender
+  participant Recommender as ContentBasedRecommender
+  participant Cache as dataset/cache (pickle)
+
+  Usuario->>Main: Ejecuta `python main.py books content`
+  Main->>Logger: build_logger(log_dir)
+  Main->>Factory: build_dataset("books", project_root)
+  Factory->>Dataset: BooksDataset(...)
+  Dataset->>Dataset: load() = _load_items/_load_users/_load_ratings
+  Main->>RecFactory: build_recommender("content", dataset)
+  RecFactory->>Recommender: ContentBasedRecommender(dataset)
+  Recommender->>Recommender: prepare()
+  Recommender->>Cache: _load_pickle_cache(...)
+  alt cache HIT
+    Cache-->>Recommender: vectorizer, tfidf_matrix
+  else cache MISS
+    Recommender->>Dataset: get_item_ids/get_item_content_text
+    Recommender->>Cache: _save_pickle_cache(...)
+  end
+  Usuario->>Main: Accion Recomendar (user_id)
+  Main->>Recommender: recommend(user_id, top_n)
+  Recommender->>Dataset: get_user_ratings/get_rating_bounds
+  Recommender-->>Main: [(item_id, score)]
+  Main-->>Usuario: Lista de recomendaciones
+```
+
+### Movies + Simple
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Usuario
+  participant Main as main.py
+  participant Logger as logging_utils.build_logger
+  participant Factory as factories.build_dataset
+  participant Dataset as MovieLensDataset
+  participant RecFactory as factories.build_recommender
+  participant Recommender as SimpleRecommender
+  participant Cache as dataset/cache (pickle)
+
+  Usuario->>Main: Ejecuta `python main.py movies simple`
+  Main->>Logger: build_logger(log_dir)
+  Main->>Factory: build_dataset("movies", project_root)
+  Factory->>Dataset: MovieLensDataset(...)
+  Dataset->>Dataset: load() = _load_items/_load_ratings
+  Main->>RecFactory: build_recommender("simple", dataset)
+  RecFactory->>Recommender: SimpleRecommender(dataset)
+  Recommender->>Recommender: prepare()
+  Recommender->>Cache: _load_pickle_cache(...)
+  alt cache HIT
+    Cache-->>Recommender: item_scores
+  else cache MISS
+    Recommender->>Dataset: get_item_ids/get_item_user_ratings
+    Recommender->>Cache: _save_pickle_cache(...)
+  end
+  Usuario->>Main: Accion Recomendar (user_id)
+  Main->>Recommender: recommend(user_id, top_n)
+  Recommender->>Dataset: get_user_rated_items/get_item_average
+  Recommender-->>Main: [(item_id, score)]
+  Main-->>Usuario: Lista de recomendaciones
+```
+
+### Movies + Collaborative
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Usuario
+  participant Main as main.py
+  participant Logger as logging_utils.build_logger
+  participant Factory as factories.build_dataset
+  participant Dataset as MovieLensDataset
+  participant RecFactory as factories.build_recommender
+  participant Recommender as CollaborativeRecommender
+  participant Cache as dataset/cache (pickle)
+
+  Usuario->>Main: Ejecuta `python main.py movies collaborative`
+  Main->>Logger: build_logger(log_dir)
+  Main->>Factory: build_dataset("movies", project_root)
+  Factory->>Dataset: MovieLensDataset(...)
+  Dataset->>Dataset: load() = _load_items/_load_ratings
+  Main->>RecFactory: build_recommender("collaborative", dataset)
+  RecFactory->>Recommender: CollaborativeRecommender(dataset)
+  Recommender->>Recommender: prepare()
+  Recommender->>Cache: _load_pickle_cache(...)
+  alt cache HIT
+    Cache-->>Recommender: user_means, neighbors
+  else cache MISS
+    Recommender->>Dataset: get_user_ids/get_item_ids/get_item_user_ratings
+    Recommender->>Cache: _save_pickle_cache(...)
+  end
+  Usuario->>Main: Accion Recomendar (user_id)
+  Main->>Recommender: recommend(user_id, top_n)
+  Recommender->>Dataset: get_user_rated_items/get_rating/get_rating_bounds
+  Recommender-->>Main: [(item_id, score)]
+  Main-->>Usuario: Lista de recomendaciones
+```
+
+### Movies + Content
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Usuario
+  participant Main as main.py
+  participant Logger as logging_utils.build_logger
+  participant Factory as factories.build_dataset
+  participant Dataset as MovieLensDataset
+  participant RecFactory as factories.build_recommender
+  participant Recommender as ContentBasedRecommender
+  participant Cache as dataset/cache (pickle)
+
+  Usuario->>Main: Ejecuta `python main.py movies content`
+  Main->>Logger: build_logger(log_dir)
+  Main->>Factory: build_dataset("movies", project_root)
+  Factory->>Dataset: MovieLensDataset(...)
+  Dataset->>Dataset: load() = _load_items/_load_ratings
+  Main->>RecFactory: build_recommender("content", dataset)
+  RecFactory->>Recommender: ContentBasedRecommender(dataset)
+  Recommender->>Recommender: prepare()
+  Recommender->>Cache: _load_pickle_cache(...)
+  alt cache HIT
+    Cache-->>Recommender: vectorizer, tfidf_matrix
+  else cache MISS
+    Recommender->>Dataset: get_item_ids/get_item_content_text
+    Recommender->>Cache: _save_pickle_cache(...)
+  end
+  Usuario->>Main: Accion Recomendar (user_id)
+  Main->>Recommender: recommend(user_id, top_n)
+  Recommender->>Dataset: get_user_ratings/get_rating_bounds
+  Recommender-->>Main: [(item_id, score)]
+  Main-->>Usuario: Lista de recomendaciones
+```
+
 ## Requisitos
 - Python 3
 - Dependencias principales: `numpy`, `scikit-learn`, `matplotlib`
