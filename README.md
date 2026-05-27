@@ -1,0 +1,190 @@
+# Sistema de recomendacion (Proyecto PA)
+
+## Descripcion general
+Proyecto de recomendacion con tres enfoques (simple, colaborativo y basado en contenido) y soporte para dos datasets (MovieLens100k y Book-Crossing). Incluye carga de datos desde CSV, generacion de recomendaciones, evaluacion con MAE/RMSE y comparacion grafica entre metodos.
+
+## Estructura del proyecto
+```
+projectePA/
+  datasets.py
+  evaluation.py
+  factories.py
+  fase.py
+  logging_utils.py
+  main.py
+  recommenders.py
+  dataset/
+    Books/
+      Books.csv
+      Ratings.csv
+      Users.csv
+    MovieLens100k/
+      links.csv
+      movies.csv
+      ratings.csv
+      tags.csv
+    cache/
+      (caches .pkl generados automaticamente)
+  logs/
+    log_YYYYMMDD-HHMMSS.txt
+```
+
+## Archivos y contenido
+
+### datasets.py
+- `Dataset` (abstracta): capa base de datos. Gestiona items, usuarios, ratings, rangos de rating y utilidades de consulta.
+- `MovieLensDataset`: carga items y ratings desde `dataset/MovieLens100k`.
+- `BooksDataset`: carga items, usuarios y ratings desde `dataset/Books`, con limite de libros configurable.
+
+### recommenders.py
+- `Recommender` (abstracta): interfaz comun para preparar, recomendar y predecir ratings. Gestiona rutas de cache.
+- `SimpleRecommender`: popularidad con promedio bayesiano (usa `min_votes`).
+- `CollaborativeRecommender`: filtrado colaborativo usuario-usuario con similitud coseno (media centrada).
+- `ContentBasedRecommender`: TF-IDF sobre contenido de items (generos o autor) y perfil de usuario ponderado por rating.
+- Utilidades internas: `_load_pickle_cache`, `_save_pickle_cache` para caches atomicos.
+
+### evaluation.py
+- `mae`, `rmse`: metricas de error.
+- `evaluate_user`: evalua un usuario con MAE/RMSE usando `predict_rating`.
+- `plot_evaluation`: grafico comparativo con matplotlib.
+
+### factories.py
+- `build_dataset`: crea y carga un dataset (`movies` o `books`).
+- `build_recommender`: crea y prepara un recomendador (`simple`, `collaborative`, `content`).
+
+### logging_utils.py
+- `build_logger`: logger con salida a consola y fichero en `logs/`.
+
+### main.py
+- CLI principal. Valida argumentos, carga dataset/recommender, y ejecuta un bucle interactivo con acciones: recomendar, evaluar, comparar.
+
+### fase.py
+- Punto de entrada alternativo que ejecuta `main()`.
+
+### dataset/
+- Datos CSV de MovieLens100k y Book-Crossing.
+- `cache/`: se generan caches `.pkl` para acelerar el preprocesado de los recomendadores.
+
+### logs/
+- Logs con timestamp generados en cada ejecucion.
+
+## Diagrama de clases (completo)
+
+```mermaid
+classDiagram
+  class Dataset {
+    <<abstract>>
+    -str _project_root
+    -str _dataset_name
+    -dict _items
+    -set _known_users
+    -dict _user_ratings
+    -dict _item_ratings
+    -float _min_rating
+    -float _max_rating
+    +get_cache_key() str
+    +load() void
+    +format_item_for_display(item_id) str
+    +get_item_content_text(item_id) str
+    +get_user_ids() List~str~
+    +get_item_ids() List~str~
+    +get_user_ratings(user_id) Dict~str,float~
+    +get_item_user_ratings(item_id) Dict~str,float~
+    +get_item_average(item_id) float
+    +get_user_average(user_id) float
+    +get_rating(user_id,item_id) float
+    +get_rating_bounds() Tuple~float,float~
+  }
+
+  class MovieLensDataset {
+    +get_cache_key() str
+    +format_item_for_display(item_id) str
+    +get_item_content_text(item_id) str
+  }
+
+  class BooksDataset {
+    +get_cache_key() str
+    +format_item_for_display(item_id) str
+    +get_item_content_text(item_id) str
+  }
+
+  Dataset <|-- MovieLensDataset
+  Dataset <|-- BooksDataset
+
+  class Recommender {
+    <<abstract>>
+    -Dataset _dataset
+    -bool _is_prepared
+    +prepare() void
+    +recommend(user_id, top_n) List~Tuple~str,float~~
+    +predict_rating(user_id, item_id) float
+  }
+
+  class SimpleRecommender {
+    -int _min_votes
+    -dict _item_scores
+    +prepare() void
+    +recommend(user_id, top_n) List~Tuple~str,float~~
+    +predict_rating(user_id, item_id) float
+  }
+
+  class CollaborativeRecommender {
+    -int _k
+    -dict _user_means
+    -dict _neighbors_cache
+    +prepare() void
+    +recommend(user_id, top_n) List~Tuple~str,float~~
+    +predict_rating(user_id, item_id) float
+  }
+
+  class ContentBasedRecommender {
+    -tfidf_matrix _tfidf_matrix
+    -TfidfVectorizer _vectorizer
+    -dict _item_index
+    -list _index_item
+    +prepare() void
+    +recommend(user_id, top_n) List~Tuple~str,float~~
+    +predict_rating(user_id, item_id) float
+  }
+
+  Recommender <|-- SimpleRecommender
+  Recommender <|-- CollaborativeRecommender
+  Recommender <|-- ContentBasedRecommender
+
+  Recommender --> Dataset : uses
+```
+
+## Requisitos
+- Python 3
+- Dependencias principales: `numpy`, `scikit-learn`, `matplotlib`
+
+Ejemplo de instalacion:
+```
+pip install numpy scikit-learn matplotlib
+```
+
+## Uso
+
+### Ejecutar el programa
+```
+python main.py <dataset> <metodo>
+```
+
+- `<dataset>`: `movies` | `books`
+- `<metodo>`: `simple` | `collaborative` | `content`
+
+Ejemplo:
+```
+python main.py movies collaborative
+```
+
+### Flujo interactivo
+1. Introducir un `user_id` valido.
+2. Elegir accion:
+   - Recomendar: muestra top-N recomendaciones.
+   - Evaluar: muestra MAE/RMSE para ese usuario.
+   - Comparar: evalua los tres metodos y genera grafico.
+
+## Notas
+- Los caches se guardan en `dataset/cache` y aceleran ejecuciones posteriores.
+- Los logs se escriben en `logs/` con nombre `log_YYYYMMDD-HHMMSS.txt`.
