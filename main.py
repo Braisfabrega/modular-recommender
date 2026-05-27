@@ -5,7 +5,7 @@ import sys
 from typing import List, Tuple
 from datasets import Dataset
 from evaluation import evaluate_user, plot_evaluation
-from factories import build_dataset, build_recommender
+from factories import Controller
 from logging_utils import build_logger
 from recommenders import Recommender
 
@@ -98,11 +98,11 @@ def show_evaluation(dataset: Dataset, recommender: Recommender, user_id: str) ->
     print(f"  RMSE = {rmse_score:.4f}")
 
 
-def show_comparison(dataset: Dataset, user_id: str, logger) -> None:
+def show_comparison(dataset: Dataset, user_id: str, logger, controller: Controller) -> None:
     """Build all three recommenders and compare their MAE/RMSE for *user_id*.
 
     For each method (Simple, Collaborative, Content) the recommender is
-    instantiated via :func:`~factories.build_recommender` (cached builds are
+    instantiated via :func:`~factories.Controller.build_recommender` (cached builds are
     reused), evaluated with :func:`~evaluation.evaluate_user`, and the results
     are printed as a table and displayed as a bar chart.
 
@@ -124,7 +124,7 @@ def show_comparison(dataset: Dataset, user_id: str, logger) -> None:
         label = METHOD_LABELS[method_key]
         print(f"  [{label}] Preparant...", end=" ", flush=True)
         try:
-            rec = build_recommender(method_key, dataset)
+            rec = controller.build_recommender(method_key)
             mae_score, rmse_score = evaluate_user(rec, dataset, user_id)
         except Exception as exc:  # pylint: disable=broad-except
             logger.warning("Error avaluant %s: %s", method_key, exc)
@@ -153,7 +153,7 @@ def show_comparison(dataset: Dataset, user_id: str, logger) -> None:
     plot_evaluation(mae_dict, rmse_dict)
 
 
-def load_dataset(project_root: str, dataset_key: str, logger) -> Dataset:
+def load_dataset(project_root: str, dataset_key: str, logger, controller: Controller) -> Dataset:
     """Load a dataset from CSV files.
 
     Parameters
@@ -171,19 +171,17 @@ def load_dataset(project_root: str, dataset_key: str, logger) -> Dataset:
         Fully loaded dataset instance.
     """
     logger.info("Carregant dataset '%s' des de CSV...", dataset_key)
-    dataset = build_dataset(dataset_key, project_root)
+    dataset = controller.build_dataset(dataset_key, project_root)
     return dataset
 
 
-def load_recommender(method_key: str, dataset: Dataset, logger) -> Recommender:
+def load_recommender(method_key: str, logger, controller: Controller) -> Recommender:
     """Build (or restore from cache) a recommender for the given method and dataset.
 
     Parameters
     ----------
     method_key : str
         Short method identifier (e.g. ``"content"``).
-    dataset : Dataset
-        Loaded dataset to bind to the recommender.
     logger : logging.Logger
         Logger instance.
 
@@ -193,11 +191,16 @@ def load_recommender(method_key: str, dataset: Dataset, logger) -> Recommender:
         Prepared recommender instance.
     """
     logger.info("Inicialitzant recomanador '%s'...", method_key)
-    recommender = build_recommender(method_key, dataset)
+    recommender = controller.build_recommender(method_key)
     return recommender
 
 
-def run_interactive_loop(dataset: Dataset, recommender: Recommender, logger) -> int:
+def run_interactive_loop(
+    dataset: Dataset,
+    recommender: Recommender,
+    logger,
+    controller: Controller,
+) -> int:
     """Run the main interactive loop.
 
     Parameters
@@ -250,7 +253,7 @@ def run_interactive_loop(dataset: Dataset, recommender: Recommender, logger) -> 
 
             if action == "compare":
                 logger.info("Accio Comparar tots els metodes per usuari %s.", user_id)
-                show_comparison(dataset, user_id, logger)
+                show_comparison(dataset, user_id, logger, controller)
                 break
 
 
@@ -272,14 +275,15 @@ def main() -> int:
     logger.info("Inici aplicacio. dataset=%s, metode=%s", dataset_key, method_key)
 
     try:
-        dataset = load_dataset(project_root, dataset_key, logger)
-        recommender = load_recommender(method_key, dataset, logger)
+        controller = Controller()
+        dataset = load_dataset(project_root, dataset_key, logger, controller)
+        recommender = load_recommender(method_key, logger, controller)
     except Exception as exc:  # pylint: disable=broad-except
         logger.exception("Error inicialitzant el sistema.")
         print(f"Error inicialitzant el sistema: {exc}")
         return 1
 
-    return run_interactive_loop(dataset, recommender, logger)
+    return run_interactive_loop(dataset, recommender, logger, controller)
 
 
 if __name__ == "__main__":
