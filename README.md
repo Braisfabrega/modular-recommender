@@ -172,22 +172,32 @@ sequenceDiagram
 
   Usuario->>Main: Ejecuta `python main.py books simple`
   Main->>Logger: build_logger(log_dir)
+  Logger-->>Main: logger
   Main->>Factory: build_dataset("books", project_root)
   Factory->>Dataset: BooksDataset(...)
-  Dataset->>Dataset: load() = _load_items/_load_users/_load_ratings
+  Dataset-->>Factory: dataset
+  Factory->>Dataset: load() = _load_items/_load_users/_load_ratings
+  Dataset-->>Factory: items/usuarios/ratings cargados
+  Factory-->>Main: dataset
   Main->>RecFactory: build_recommender("simple", dataset)
   RecFactory->>Recommender: SimpleRecommender(dataset)
-  Recommender->>Recommender: prepare()
+  Recommender-->>RecFactory: recommender
+  RecFactory->>Recommender: prepare()
   Recommender->>Cache: _load_pickle_cache(...)
   alt cache HIT
     Cache-->>Recommender: item_scores
   else cache MISS
     Recommender->>Dataset: get_item_ids/get_item_user_ratings
+    Dataset-->>Recommender: items/ratings
     Recommender->>Cache: _save_pickle_cache(...)
+    Cache-->>Recommender: ok
   end
+  Recommender-->>RecFactory: preparado
+  RecFactory-->>Main: recommender
   Usuario->>Main: Accion Recomendar (user_id)
   Main->>Recommender: recommend(user_id, top_n)
   Recommender->>Dataset: get_user_rated_items/get_item_average
+  Dataset-->>Recommender: ratings/medias
   Recommender-->>Main: [(item_id, score)]
   Main-->>Usuario: Lista de recomendaciones
 ```
@@ -208,22 +218,32 @@ sequenceDiagram
 
   Usuario->>Main: Ejecuta `python main.py books collaborative`
   Main->>Logger: build_logger(log_dir)
+  Logger-->>Main: logger
   Main->>Factory: build_dataset("books", project_root)
   Factory->>Dataset: BooksDataset(...)
-  Dataset->>Dataset: load() = _load_items/_load_users/_load_ratings
+  Dataset-->>Factory: dataset
+  Factory->>Dataset: load() = _load_items/_load_users/_load_ratings
+  Dataset-->>Factory: items/usuarios/ratings cargados
+  Factory-->>Main: dataset
   Main->>RecFactory: build_recommender("collaborative", dataset)
   RecFactory->>Recommender: CollaborativeRecommender(dataset)
-  Recommender->>Recommender: prepare()
+  Recommender-->>RecFactory: recommender
+  RecFactory->>Recommender: prepare()
   Recommender->>Cache: _load_pickle_cache(...)
   alt cache HIT
     Cache-->>Recommender: user_means, neighbors
   else cache MISS
     Recommender->>Dataset: get_user_ids/get_item_ids/get_item_user_ratings
+    Dataset-->>Recommender: users/items/ratings
     Recommender->>Cache: _save_pickle_cache(...)
+    Cache-->>Recommender: ok
   end
+  Recommender-->>RecFactory: preparado
+  RecFactory-->>Main: recommender
   Usuario->>Main: Accion Recomendar (user_id)
   Main->>Recommender: recommend(user_id, top_n)
   Recommender->>Dataset: get_user_rated_items/get_rating/get_rating_bounds
+  Dataset-->>Recommender: ratings/rango
   Recommender-->>Main: [(item_id, score)]
   Main-->>Usuario: Lista de recomendaciones
 ```
@@ -244,22 +264,32 @@ sequenceDiagram
 
   Usuario->>Main: Ejecuta `python main.py books content`
   Main->>Logger: build_logger(log_dir)
+  Logger-->>Main: logger
   Main->>Factory: build_dataset("books", project_root)
   Factory->>Dataset: BooksDataset(...)
-  Dataset->>Dataset: load() = _load_items/_load_users/_load_ratings
+  Dataset-->>Factory: dataset
+  Factory->>Dataset: load() = _load_items/_load_users/_load_ratings
+  Dataset-->>Factory: items/usuarios/ratings cargados
+  Factory-->>Main: dataset
   Main->>RecFactory: build_recommender("content", dataset)
   RecFactory->>Recommender: ContentBasedRecommender(dataset)
-  Recommender->>Recommender: prepare()
+  Recommender-->>RecFactory: recommender
+  RecFactory->>Recommender: prepare()
   Recommender->>Cache: _load_pickle_cache(...)
   alt cache HIT
     Cache-->>Recommender: vectorizer, tfidf_matrix
   else cache MISS
     Recommender->>Dataset: get_item_ids/get_item_content_text
+    Dataset-->>Recommender: items/textos
     Recommender->>Cache: _save_pickle_cache(...)
+    Cache-->>Recommender: ok
   end
+  Recommender-->>RecFactory: preparado
+  RecFactory-->>Main: recommender
   Usuario->>Main: Accion Recomendar (user_id)
   Main->>Recommender: recommend(user_id, top_n)
   Recommender->>Dataset: get_user_ratings/get_rating_bounds
+  Dataset-->>Recommender: ratings/rango
   Recommender-->>Main: [(item_id, score)]
   Main-->>Usuario: Lista de recomendaciones
 ```
@@ -280,22 +310,32 @@ sequenceDiagram
 
   Usuario->>Main: Ejecuta `python main.py movies simple`
   Main->>Logger: build_logger(log_dir)
+  Logger-->>Main: logger
   Main->>Factory: build_dataset("movies", project_root)
   Factory->>Dataset: MovieLensDataset(...)
-  Dataset->>Dataset: load() = _load_items/_load_ratings
+  Dataset-->>Factory: dataset
+  Factory->>Dataset: load() = _load_items/_load_ratings
+  Dataset-->>Factory: items/ratings cargados
+  Factory-->>Main: dataset
   Main->>RecFactory: build_recommender("simple", dataset)
   RecFactory->>Recommender: SimpleRecommender(dataset)
-  Recommender->>Recommender: prepare()
+  Recommender-->>RecFactory: recommender
+  RecFactory->>Recommender: prepare()
   Recommender->>Cache: _load_pickle_cache(...)
   alt cache HIT
     Cache-->>Recommender: item_scores
   else cache MISS
     Recommender->>Dataset: get_item_ids/get_item_user_ratings
+    Dataset-->>Recommender: items/ratings
     Recommender->>Cache: _save_pickle_cache(...)
+    Cache-->>Recommender: ok
   end
+  Recommender-->>RecFactory: preparado
+  RecFactory-->>Main: recommender
   Usuario->>Main: Accion Recomendar (user_id)
   Main->>Recommender: recommend(user_id, top_n)
   Recommender->>Dataset: get_user_rated_items/get_item_average
+  Dataset-->>Recommender: ratings/medias
   Recommender-->>Main: [(item_id, score)]
   Main-->>Usuario: Lista de recomendaciones
 ```
@@ -316,22 +356,32 @@ sequenceDiagram
 
   Usuario->>Main: Ejecuta `python main.py movies collaborative`
   Main->>Logger: build_logger(log_dir)
+  Logger-->>Main: logger
   Main->>Factory: build_dataset("movies", project_root)
   Factory->>Dataset: MovieLensDataset(...)
-  Dataset->>Dataset: load() = _load_items/_load_ratings
+  Dataset-->>Factory: dataset
+  Factory->>Dataset: load() = _load_items/_load_ratings
+  Dataset-->>Factory: items/ratings cargados
+  Factory-->>Main: dataset
   Main->>RecFactory: build_recommender("collaborative", dataset)
   RecFactory->>Recommender: CollaborativeRecommender(dataset)
-  Recommender->>Recommender: prepare()
+  Recommender-->>RecFactory: recommender
+  RecFactory->>Recommender: prepare()
   Recommender->>Cache: _load_pickle_cache(...)
   alt cache HIT
     Cache-->>Recommender: user_means, neighbors
   else cache MISS
     Recommender->>Dataset: get_user_ids/get_item_ids/get_item_user_ratings
+    Dataset-->>Recommender: users/items/ratings
     Recommender->>Cache: _save_pickle_cache(...)
+    Cache-->>Recommender: ok
   end
+  Recommender-->>RecFactory: preparado
+  RecFactory-->>Main: recommender
   Usuario->>Main: Accion Recomendar (user_id)
   Main->>Recommender: recommend(user_id, top_n)
   Recommender->>Dataset: get_user_rated_items/get_rating/get_rating_bounds
+  Dataset-->>Recommender: ratings/rango
   Recommender-->>Main: [(item_id, score)]
   Main-->>Usuario: Lista de recomendaciones
 ```
@@ -352,22 +402,32 @@ sequenceDiagram
 
   Usuario->>Main: Ejecuta `python main.py movies content`
   Main->>Logger: build_logger(log_dir)
+  Logger-->>Main: logger
   Main->>Factory: build_dataset("movies", project_root)
   Factory->>Dataset: MovieLensDataset(...)
-  Dataset->>Dataset: load() = _load_items/_load_ratings
+  Dataset-->>Factory: dataset
+  Factory->>Dataset: load() = _load_items/_load_ratings
+  Dataset-->>Factory: items/ratings cargados
+  Factory-->>Main: dataset
   Main->>RecFactory: build_recommender("content", dataset)
   RecFactory->>Recommender: ContentBasedRecommender(dataset)
-  Recommender->>Recommender: prepare()
+  Recommender-->>RecFactory: recommender
+  RecFactory->>Recommender: prepare()
   Recommender->>Cache: _load_pickle_cache(...)
   alt cache HIT
     Cache-->>Recommender: vectorizer, tfidf_matrix
   else cache MISS
     Recommender->>Dataset: get_item_ids/get_item_content_text
+    Dataset-->>Recommender: items/textos
     Recommender->>Cache: _save_pickle_cache(...)
+    Cache-->>Recommender: ok
   end
+  Recommender-->>RecFactory: preparado
+  RecFactory-->>Main: recommender
   Usuario->>Main: Accion Recomendar (user_id)
   Main->>Recommender: recommend(user_id, top_n)
   Recommender->>Dataset: get_user_ratings/get_rating_bounds
+  Dataset-->>Recommender: ratings/rango
   Recommender-->>Main: [(item_id, score)]
   Main-->>Usuario: Lista de recomendaciones
 ```
