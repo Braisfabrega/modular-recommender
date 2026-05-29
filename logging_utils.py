@@ -6,21 +6,22 @@ from datetime import datetime
 
 
 def build_logger(log_dir: str) -> logging.Logger:
-    """Build and configure the application logger.
+    """Construeix i configura el sistema de registre de traces (logger) de l'aplicació.
 
-    Creates a logger that writes to a timestamped file in ``log_dir`` and
-    to the console.  File handler captures DEBUG and above; console handler
-    captures INFO and above.
+    Crea un logger configurat per escriure simultàniament en un fitxer de text amb una
+    marca de temps (timestamp) dins del directori ``log_dir`` i a la consola de sortida.
+    El gestor del fitxer (file handler) captura traces a partir del nivell DEBUG, mentre
+    que el gestor de la consola (console handler) captura a partir del nivell INFO.
 
     Parameters
     ----------
     log_dir : str
-        Directory where the log file will be created.
+        Ruta del directori on es crearà i s'emmagatzemarà el fitxer de log.
 
     Returns
     -------
     logging.Logger
-        Configured logger instance named ``"recommender_system"``.
+        Instància del logger completament configurada amb el nom ``"recommender_system"``.
     """
     os.makedirs(log_dir, exist_ok=True)
 

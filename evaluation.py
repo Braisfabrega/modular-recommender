@@ -10,20 +10,20 @@ from recommenders import Recommender
 
 
 def mae(predictions: List[float], actuals: List[float]) -> float:
-    """Compute Mean Absolute Error between predicted and actual ratings.
+    """Calcula l'Error Absolut Mitjà (MAE) entre les valoracions predites i les reals.
 
     Parameters
     ----------
     predictions : list of float
-        Predicted rating values.
+        Valors de les valoracions predites pel sistema.
     actuals : list of float
-        Corresponding ground-truth rating values.
+        Valors reals (ground-truth) de les valoracions corresponents.
 
     Returns
     -------
     float
-        MAE value.  Returns ``float('nan')`` when the input lists are empty
-        or have mismatched lengths.
+        El valor del MAE. Retorna ``float('nan')`` quan les llistes d'entrada
+        estan buides o tenen longituds diferents.
 
     Examples
     --------
@@ -36,20 +36,20 @@ def mae(predictions: List[float], actuals: List[float]) -> float:
 
 
 def rmse(predictions: List[float], actuals: List[float]) -> float:
-    """Compute Root Mean Square Error between predicted and actual ratings.
+    """Calcula l'Arrel de l'Error Quadràtic Mitjà (RMSE) entre les valoracions predites i les reals.
 
     Parameters
     ----------
     predictions : list of float
-        Predicted rating values.
+        Valors de les valoracions predites pel sistema.
     actuals : list of float
-        Corresponding ground-truth rating values.
+        Valors reals (ground-truth) de les valoracions corresponents.
 
     Returns
     -------
     float
-        RMSE value.  Returns ``float('nan')`` when the input lists are empty
-        or have mismatched lengths.
+        El valor del RMSE. Retorna ``float('nan')`` quan les llistes d'entrada
+        estan buides o tenen longituds diferents.
 
     Examples
     --------
@@ -67,27 +67,27 @@ def evaluate_user(
     dataset: Dataset,
     user_id: str,
 ) -> Tuple[Optional[float], Optional[float]]:
-    """Evaluate recommender accuracy for a single user.
+    """Avalua la precisió del recomanador per a un únic usuari concret.
 
-    For every item the user has actually rated, the recommender is asked for a
-    prediction.  MAE and RMSE are then computed over the items for which a
-    prediction was available.
+    Per a cada ítem que l'usuari ha valorat realment, es demana una predicció al
+    recomanador. El MAE i el RMSE es calculen finalment sobre el conjunt d'ítems
+    per als quals s'ha pogut obtenir una predicció vàlida.
 
     Parameters
     ----------
     recommender : Recommender
-        Trained recommender instance.
+        Instància entrenada del sistema de recomanació.
     dataset : Dataset
-        Dataset that contains the ground-truth ratings.
+        Conjunt de dades que conté les valoracions reals.
     user_id : str
-        Target user identifier.
+        Identificador de l'usuari objectiu.
 
     Returns
     -------
     mae_score : float or None
-        Mean Absolute Error, or ``None`` when no predictions could be made.
+        L'Error Absolut Mitjà, o ``None`` si no s'ha pogut realitzar cap predicció.
     rmse_score : float or None
-        Root Mean Square Error, or ``None`` when no predictions could be made.
+        L'Arrel de l'Error Quadràtic Mitjà, o ``None`` si no s'ha pogut realitzar cap predicció.
     """
     actual_ratings = dataset.get_user_ratings(user_id)
     if not actual_ratings:
@@ -112,20 +112,20 @@ def plot_evaluation(
     mae_dict: Dict[str, float],
     rmse_dict: Dict[str, float],
 ) -> None:
-    """Display a grouped bar chart comparing MAE and RMSE across recommenders.
+    """Mostra un gràfic de barres agrupades comparant les mètriques MAE i RMSE entre recomanadors.
 
     Parameters
     ----------
     mae_dict : dict[str, float]
-        Mapping from recommender name to its Mean Absolute Error.
+        Diccionari que mapeja el nom d'un recomanador amb el seu Error Absolut Mitjà.
     rmse_dict : dict[str, float]
-        Mapping from recommender name to its Root Mean Square Error.
-        Keys should match those in *mae_dict*.
+        Diccionari que mapeja el nom d'un recomanador com el seu Arrel de l'Error Quadràtic Mitjà.
+        Les claus d'aquest diccionari han de coincidir exactament amb les de *mae_dict*.
 
     Notes
     -----
-    The function calls ``plt.show()`` so the chart opens in a window (or is
-    rendered inline when running inside a Jupyter notebook).
+    La funció crida internament a ``plt.show()`` per obrir el gràfic en una finestra independent
+    (o renderitzar-lo directament en línia si s'executa en un entorn de Jupyter Notebook).
 
     Examples
     --------

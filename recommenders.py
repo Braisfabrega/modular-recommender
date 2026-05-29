@@ -19,6 +19,21 @@ Recommendation = Tuple[str, float]
 
 
 def _load_pickle_cache(cache_path: str, logger: logging.Logger) -> Optional[Any]:
+    """Carrega un fitxer d'emmagatzematge serialitzat (pickle cache) des del disc.
+
+    Parameters
+    ----------
+    cache_path : str
+        Ruta absoluta o relativa al fitxer .pkl que es vol llegir.
+    logger : logging.Logger
+        Instància de logging activa per registrar l'estat de la càrrega.
+
+    Returns
+    -------
+    Any or None
+        L'objecte deserialitzat si la lectura és correcta; ``None`` si el fitxer
+        no existeix o es detecta corrupció en les dades.
+    """
     if not os.path.exists(cache_path):
         logger.info("Caché MISS — fitxer no trobat: %s", cache_path)
         return None
@@ -38,6 +53,21 @@ def _load_pickle_cache(cache_path: str, logger: logging.Logger) -> Optional[Any]
 
 
 def _save_pickle_cache(cache_path: str, payload: Any, logger: logging.Logger) -> None:
+    """Desa un objecte en disc en format serialitzat de manera atòmica i segura.
+
+    Utilitza un fitxer temporal i l'operació atòmica de substitució del sistema de 
+    fitxers per garantir que no es generin binaris corromputs si la seva escriptura
+    s'interromp abruptament.
+
+    Parameters
+    ----------
+    cache_path : str
+        Ruta objectiu on es vol emmagatzemar de manera definitiva el fitxer de memòria cau.
+    payload : Any
+        Estructura o objecte de Python que es desitja serialitzar.
+    logger : logging.Logger
+        Instància de logging activa per registrar l'estat de l'operació.
+    """
     cache_dir = os.path.dirname(cache_path)
     tmp_path: Optional[str] = None
     try:
@@ -59,75 +89,109 @@ def _save_pickle_cache(cache_path: str, payload: Any, logger: logging.Logger) ->
 
 
 class Recommender(ABC):
-    """Abstract base class for all recommendation engines.
+    """Classe base abstracta reguladora de tots els motors de recomanació del sistema.
 
     Parameters
     ----------
     dataset : Dataset
-        The dataset this recommender operates on.
+        El conjunt de dades actiu sobre el qual operarà aquest recomanador.
 
     Attributes
     ----------
     _dataset : Dataset
-        Bound dataset instance.
+        Instància del conjunt de dades vinculada internament.
     _is_prepared : bool
-        ``True`` after :meth:`prepare` has completed successfully.
+        Indicador booleà. Esdevé ``True`` un cop el mètode :meth:`prepare` s'ha
+        completat satisfactòriament.
+    _logger : logging.Logger
+        Instància del registre de traces personalitzat amb el nom de la subclasse.
     """
 
     def __init__(self, dataset: Dataset) -> None:
+        """Inicialitza l'esquelet base del recomanador abstracte."""
         self._dataset = dataset
         self._is_prepared = False
         self._logger = logging.getLogger(f"recommender_system.{self.__class__.__name__}")
 
     def _cache_path(self, filename: str) -> str:
+        """Calcula de manera interna la ruta del directori de memòria cau per a un fitxer.
+
+        Parameters
+        ----------
+        filename : str
+            Nom del fitxer que es pretén ubicar.
+
+        Returns
+        -------
+        str
+            Ruta completa normalitzada apuntant cap a la subcarpeta de memòria cau.
+        """
         cache_dir = os.path.join(self._dataset.get_project_root(), "dataset", "cache")
         return os.path.join(cache_dir, filename)
 
     @abstractmethod
     def prepare(self) -> None:
-        """Pre-compute any internal state needed for recommendations."""
+        """Precomputa o entrena l'estat intern i les estructures requerides pels models."""
         raise NotImplementedError
 
     @abstractmethod
     def recommend(self, user_id: str, top_n: int = 5) -> List[Recommendation]:
-        """Return the top-N recommended items for *user_id*.
+        """Calcula i obté els Top-N ítems millor recomanats per a un usuari concret.
 
         Parameters
         ----------
         user_id : str
-            Target user identifier.
-        top_n : int, optional
-            Maximum number of recommendations to return.  Defaults to ``5``.
+            Identificador únic de l'usuari objectiu.
+        top_n : int, opcional
+            Nombre màxim de recomanacions de sortida sol·licitades. Per defecte és ``5``.
 
         Returns
         -------
-        list of (str, float)
-            List of ``(item_id, score)`` pairs sorted by descending score.
+        list of tuple of (str, float)
+            Llista ordenada descendentment segons la puntuació de parelles ``(item_id, score)``.
         """
         raise NotImplementedError
 
     @abstractmethod
     def predict_rating(self, user_id: str, item_id: str) -> Optional[float]:
-        """Predict the rating *user_id* would give *item_id*.
+        """Estima numèricament la valoració predita que un usuari donaria a un ítem concret.
 
-        Used by the evaluation module to compute MAE / RMSE metrics.
+        Invocat directament pel mòdul d'avaluació externa per extreure les mètriques 
+        comparatives globals MAE i RMSE.
 
         Parameters
         ----------
         user_id : str
-            Target user identifier.
+            Identificador de l'usuari d'estudi.
         item_id : str
-            Item identifier to predict.
+            Identificador de l'ítem del qual es desitja la predicció.
 
         Returns
         -------
         float or None
-            Predicted rating, or ``None`` when the recommender cannot produce
-            a meaningful estimate.
+            Puntuació numèrica estimada clampada, o ``None`` quan el recomanador no disposa 
+            de suficients dades contextuals com per fer un càlcul coherent.
         """
         raise NotImplementedError
 
     def _fallback_by_item_average(self, top_n: int, excluded_items: Set[str]) -> List[Recommendation]:
+        """Mètode de contingència que recomana els ítems més ben valorats en mitjana global.
+
+        S'utilitza per evitar trencar el flux del programa en situacions on no hi ha prou 
+        veïns (en col·laboratiu) o vectors de paraules (en contingut) per a l'usuari objectiu.
+
+        Parameters
+        ----------
+        top_n : int
+            Nombre màxim d'ítems de contingència a llistar.
+        excluded_items : set of str
+            Conjunt d'identificadors d'ítems que han de ser omesos (p. ex. ja consumits).
+
+        Returns
+        -------
+        list of tuple of (str, float)
+            Llista d'ítems candidats ordenats descendentment per la seva puntuació mitjana.
+        """
         candidates: List[Recommendation] = []
         for item_id in self._dataset.get_item_ids():
             if item_id in excluded_items:
@@ -142,34 +206,36 @@ class Recommender(ABC):
 
 
 class SimpleRecommender(Recommender):
-    """Bayesian-average popularity recommender.
+    """Sistema de recomanació simple basat en la Popularitat Bayesiana (Bayesian Average).
 
-    Scores each item using a weighted combination of the item's own average
-    rating and the global average, controlled by a minimum-votes threshold.
+    Calcula la puntuació dels ítems aplicant una ponderació equilibrada que combina 
+    la mitjana de valoracions d'un propi ítem amb la mitjana de valoracions global de tot el 
+    dataset, penalitzant o regularitzant aquells ítems amb molt poques interaccions.
 
     Parameters
     ----------
     dataset : Dataset
-        Dataset to recommend from.
-    min_votes : int, optional
-        Minimum number of ratings an item must have to be eligible.
-        Also used as the regularisation weight.  Defaults to ``10``.
+        Conjunt de dades d'on s'extreuen les interaccions.
+    min_votes : int, opcional
+        Llindar de vots mínims exigibles per considerar un ítem com a elegible i pes 
+        de regularització utilitzat en la fórmula bayesiana. Per defecte és ``10``.
 
     Attributes
     ----------
     _min_votes : int
-        Minimum-vote threshold / regularisation weight.
-    _item_scores : dict
-        Mapping from item_id to its Bayesian-average score.
+        Valor límit de regularització bayesiana / vots mínims exigibles.
+    _item_scores : dict of (str, float)
+        Diccionari que mapeja cada ``item_id`` amb la seva puntuació ponderada precomputada.
     """
 
     def __init__(self, dataset: Dataset, min_votes: int = 10) -> None:
+        """Inicialitza i assigna els paràmetres de configuració de Popularitat Bayesiana."""
         super().__init__(dataset)
         self._min_votes = min_votes
         self._item_scores: Dict[str, float] = {}
 
     def prepare(self) -> None:
-        """Compute Bayesian-average scores for all eligible items, amb caché pickle."""
+        """Calcula la puntuació Bayesiana de tots els ítems vàlids, recorrent a cache en disc."""
         cache_path = self._cache_path(
             f"simple_{self._dataset.get_cache_key()}_minvotes{self._min_votes}.pkl"
         )
@@ -228,6 +294,24 @@ class SimpleRecommender(Recommender):
         )
 
     def recommend(self, user_id: str, top_n: int = 5) -> List[Recommendation]:
+        """Calcula i obté els Top-N ítems recomanats per a un usuari concret.
+
+        Filtra els ítems que l'usuari ja ha valorat prèviament i ordena els 
+        candidats restants de manera descendent segons la seva puntuació Bayesiana.
+        Si no hi ha candidats elegibles, recorre al mètode de contingència.
+
+        Parameters
+        ----------
+        user_id : str
+            Identificador únic de l'usuari objectiu.
+        top_n : int, opcional
+            Nombre màxim de recomanacions a retornar. Per defecte és ``5``.
+
+        Returns
+        -------
+        list of tuple of (str, float)
+            Llista ordenada descendentment de parelles ``(item_id, score)``.
+        """
         if not self._is_prepared:
             self.prepare()
 
@@ -245,20 +329,23 @@ class SimpleRecommender(Recommender):
         return candidates[:top_n]
 
     def predict_rating(self, user_id: str, item_id: str) -> Optional[float]:
-        """Return the Bayesian-average score for *item_id* as a predicted rating.
+        """Retorna la puntuació Bayesiana d'un ítem com a predicció de valoració.
+
+        Aquesta predicció és independent de l'usuari, ja que es basa en la 
+        popularitat global ponderada de l'ítem.
 
         Parameters
         ----------
         user_id : str
-            Ignored; simple recommender scores are user-independent.
+            Identificador de l'usuari (s'ignora en aquest recomanador).
         item_id : str
-            Target item identifier.
+            Identificador únic de l'ítem del qual es vol la predicció.
 
         Returns
         -------
         float or None
-            Pre-computed Bayesian score, or ``None`` when the item has fewer
-            votes than ``min_votes``.
+            La puntuació Bayesiana precomputada, o ``None`` si l'ítem no té 
+            prou vots per haver estat indexat a ``_item_scores``.
         """
         if not self._is_prepared:
             self.prepare()
@@ -266,35 +353,40 @@ class SimpleRecommender(Recommender):
 
 
 class CollaborativeRecommender(Recommender):
-    """User-based collaborative filtering recommender.
+    """Filtre Col·laboratiu basat en l'usuari (User-Based Collaborative Filtering).
 
-    Uses Pearson-like cosine similarity computed over mean-centred ratings.
+    Estimeu el comportament futur d'un usuari mitjançant l'estudi de perfils de veïns 
+    similars, utilitzant una aproximació a la correlació de Pearson mitjançant similituds 
+    de cosinus aplicades directament sobre les puntuacions centrades en la mitjana.
 
     Parameters
     ----------
     dataset : Dataset
-        Dataset to recommend from.
-    k : int, optional
-        Number of nearest neighbours to consider.  Defaults to ``5``.
+        Conjunt de dades de d'on s'extreuen usuaris i valoracions.
+    k : int, opcional
+        Mida de l'entorn. Nombre màxim de veïns propers que es consideren per a la 
+        predicció de puntuacions. Per defecte és ``5``.
 
     Attributes
     ----------
     _k : int
-        Neighbourhood size.
-    _user_means : dict
-        Mapping from user_id to that user's average rating.
+        Mida de l'entorn de veïnatge.
+    _user_means : dict of (str, float)
+        Mapeig del perfil d'usuaris amb la seva mitjana de puntuacions personals.
     _neighbors_cache : dict or None
-        Mapping from user_id to ``[(neighbor_id, similarity), ...]``.
+        Estructura de memòria cau on es desen per a cada usuari llistes ordenades 
+        de parelles tipus ``[(neighbor_id, similarity_value), ...]``.
     """
 
     def __init__(self, dataset: Dataset, k: int = 5) -> None:
+        """Inicialitza el motor col·laboratiu configurant el paràmetre de veïns K."""
         super().__init__(dataset)
         self._k = k
         self._user_means: Dict[str, float] = {}
         self._neighbors_cache: Optional[Dict[str, List[Tuple[str, float]]]] = None
 
     def prepare(self) -> None:
-        """Compute per-user mean ratings i veïns, amb caché pickle."""
+        """Calcula les mitjanes dels usuaris i construeix el mapa d'afinitat de veïns."""
         cache_path = self._cache_path(
             f"collaborative_{self._dataset.get_cache_key()}_k{self._k}.pkl"
         )
@@ -338,6 +430,13 @@ class CollaborativeRecommender(Recommender):
         )
 
     def _build_neighbors_cache(self) -> Dict[str, List[Tuple[str, float]]]:
+        """Calcula eficientment de forma creuada la similitud de cosinus entre tots els usuaris.
+
+        Returns
+        -------
+        dict of (str, list of tuple)
+            Diccionari d'entorns de veïnatge indexat per ID d'usuari.
+        """
         stats: Dict[str, Dict[str, List[float]]] = defaultdict(
             lambda: defaultdict(lambda: [0.0, 0.0, 0.0])
         )
@@ -380,6 +479,18 @@ class CollaborativeRecommender(Recommender):
         return neighbors_cache
 
     def _top_k_neighbors(self, user_id: str) -> List[Tuple[str, float]]:
+        """Recupera o calcula sota demanda els Top-K veïns d'un usuari.
+
+        Parameters
+        ----------
+        user_id : str
+            Identificador únic de l'usuari consultat.
+
+        Returns
+        -------
+        list of tuple of (str, float)
+            Llista de fins a K parelles amb ID de veí i la seva similitud associada.
+        """
         if self._neighbors_cache is not None:
             return self._neighbors_cache.get(user_id, [])
 
@@ -419,6 +530,22 @@ class CollaborativeRecommender(Recommender):
         neighbors: Sequence[Tuple[str, float]],
         top_n: int,
     ) -> List[Recommendation]:
+        """Calcula de manera agrupada les puntuacions estimades d'un entorn per als ítems no valorats.
+
+        Parameters
+        ----------
+        user_id : str
+            Usuari objectiu de l'estudi.
+        neighbors : sequence of tuple
+            Llista ordenada dels veïns afins a l'usuari.
+        top_n : int
+            Nombre de recomanacions màximes sol·licitades.
+
+        Returns
+        -------
+        list of tuple of (str, float)
+            Llista de les Top-N recomanacions ordenades.
+        """
         rated_items = self._dataset.get_user_rated_items(user_id)
         avg_u = self._user_means.get(user_id)
         if avg_u is None:
@@ -460,6 +587,25 @@ class CollaborativeRecommender(Recommender):
         return predictions[:top_n]
 
     def recommend(self, user_id: str, top_n: int = 5) -> List[Recommendation]:
+        """Calcula els Top-N ítems recomanats mitjançant filtre col·laboratiu.
+
+        Identifica els veïns més propers de l'usuari objectiu i utilitza les seves 
+        interaccions per predir la puntuació dels ítems que l'usuari encara no 
+        ha valorat. Si l'usuari o el seu entorn no tenen dades suficients, es 
+        recorre a la mitjana global per ítem.
+
+        Parameters
+        ----------
+        user_id : str
+            Identificador únic de l'usuari objectiu.
+        top_n : int, opcional
+            Nombre màxim de recomanacions a retornar. Per defecte és ``5``.
+
+        Returns
+        -------
+        list of tuple of (str, float)
+            Llista de les millors recomanacions ordenades de manera descendent.
+        """
         if not self._is_prepared:
             self.prepare()
 
@@ -473,20 +619,25 @@ class CollaborativeRecommender(Recommender):
         return self._predict_for_user(user_id, neighbors, top_n)
 
     def predict_rating(self, user_id: str, item_id: str) -> Optional[float]:
-        """Predict the rating *user_id* would give *item_id* using CF.
+        """Prediu la valoració d'un ítem basant-se en l'entorn de veïns (K-NN).
+
+        Aplica la fórmula col·laborativa agregant les desviacions respecte a la 
+        mitjana dels veïns que sí que han puntuat l'ítem, ponderat per la seva 
+        similitud. El resultat final es clampa automàticament als límits de 
+        valoració del dataset.
 
         Parameters
         ----------
         user_id : str
-            Target user identifier.
+            Identificador únic de l'usuari d'estudi.
         item_id : str
-            Item identifier to predict.
+            Identificador de l'ítem del qual es desitja estimar la nota.
 
         Returns
         -------
         float or None
-            CF prediction clamped to the dataset rating bounds, or ``None``
-            when there are no neighbours with a rating for *item_id*.
+            Predicció numèrica estimada clampada, o ``None`` si l'usuari no és 
+            vàlid, no té veïns, o cap dels seus veïns ha puntuat aquest ítem.
         """
         if not self._is_prepared:
             self.prepare()
@@ -521,33 +672,32 @@ class CollaborativeRecommender(Recommender):
 
 
 class ContentBasedRecommender(Recommender):
-    """Content-based recommender using TF-IDF item vectors.
+    """Sistema de recomanació Basat en Contingut utilitzant perfils de matriu de text TF-IDF.
 
-    Builds a TF-IDF matrix from each item's textual content (e.g. genres for
-    MovieLens, author for Books).  A user profile is computed as the
-    rating-weighted average of the TF-IDF vectors of items the user has rated.
-    Candidates are ranked by dot-product similarity (S_u = M · Q_u^T) between
-    the user profile and each unrated item vector, scaled to the dataset's
-    maximum rating.
+    Forma una matriu esparsa basant-se en metadades textuals de cada ítem (com ara gèneres a
+    MovieLens o autors a Books). Es modela el perfil de l'usuari calculant la mitjana ponderada 
+    segons les seves valoracions històriques dels vectors de text consumits. La similitud final
+    es mesura mitjançant el producte escalar (S_u = M · Q_u^T) i s'escala a la cota màxima.
 
     Parameters
     ----------
     dataset : Dataset
-        Dataset to recommend from.
+        Conjunt de dades amb atributs textuals associats als ítems.
 
     Attributes
     ----------
-    _tfidf_matrix : scipy.sparse matrix or None
-        TF-IDF matrix of shape ``(n_items, n_features)``.
+    _tfidf_matrix : scipy.sparse.csr_matrix or None
+        Matriu conceptual de característiques de termes amb forma ``(n_items, n_features)``.
     _vectorizer : TfidfVectorizer or None
-        Fitted scikit-learn vectorizer.
-    _item_index : dict
-        Mapping from item_id to row index in ``_tfidf_matrix``.
-    _index_item : list
-        Mapping from row index to item_id.
+        Mecanisme extractor d'sklearn de termes i freqüències ajustat.
+    _item_index : dict of (str, int)
+        Diccionari mapejador de codis d'ítem cap a posicions de fila de la matriu.
+    _index_item : list of str
+        Llista indexada d'identificadors d'ítems per fer correspondències inverses de fila.
     """
 
     def __init__(self, dataset: Dataset) -> None:
+        """Inicialitza l'esquelet intern dels components de text i vectorització TF-IDF."""
         super().__init__(dataset)
         self._tfidf_matrix = None
         self._vectorizer: Optional[TfidfVectorizer] = None
@@ -555,7 +705,7 @@ class ContentBasedRecommender(Recommender):
         self._index_item: List[str] = []
 
     def prepare(self) -> None:
-        """Fit TF-IDF vectorizer on all item content texts, amb caché pickle."""
+        """Ajusta l'extractor TfidfVectorizer analitzant totes les descripcions de text textuals."""
         cache_path = self._cache_path(f"content_{self._dataset.get_cache_key()}.pkl")
         self._logger.info(
             "Preparant ContentBasedRecommender per al dataset '%s'...",
@@ -630,43 +780,39 @@ class ContentBasedRecommender(Recommender):
         user_profile: np.ndarray,
         item_vector_or_matrix,
     ) -> np.ndarray:
-        """Compute raw dot-product similarity following S_u = M · Q_u^T.
+        """Calcula el producte vectorial pur de similitud basat en la directriu S_u = M · Q_u^T.
 
-        No normalisation is applied — this is a pure inner-product as required
-        by the project formula.  The method handles both the full-matrix case
-        (all items at once) and the single-item case transparently via the
-        ``@`` operator.
+        Sense aplicar normalitzacions de cosinus afegides, seguint la descripció del 
+        disseny teòric del projecte. Multiplica vectors densos o matrius esparses 
+        transparentment amb l'operador ``@``.
 
         Parameters
         ----------
         user_profile : np.ndarray
-            Dense profile vector of shape ``(n_features,)``.
-        item_vector_or_matrix : np.ndarray or scipy sparse matrix
-            Either a 1-D item vector ``(n_features,)`` for a single item, or
-            the full TF-IDF matrix of shape ``(n_items, n_features)`` for all
-            items at once.
+            Vector de perfil de l'usuari multidimensional complet d'estructura ``(n_features,)``.
+        item_vector_or_matrix : np.ndarray or scipy.sparse matrix
+            Vector d'ítem ``(n_features,)`` o matriu TF-IDF sencera ``(n_items, n_features)``.
 
         Returns
         -------
         np.ndarray
-            1-D array of similarity scores — shape ``(n_items,)`` for the
-            matrix case, or a scalar for the single-vector case.
+            Vector numèric unidimensional o escalar que llista les afinitats resultants.
         """
         return item_vector_or_matrix @ user_profile
 
     def _compute_user_profile(self, user_id: str) -> Optional[np.ndarray]:
-        """Return the rating-weighted mean TF-IDF vector for *user_id*.
+        """Desenvolupa el vector mitjà ponderat TF-IDF que caracteritza els gustos de l'usuari.
 
         Parameters
         ----------
         user_id : str
-            Target user identifier.
+            Identificador únic de l'usuari consultat.
 
         Returns
         -------
-        numpy.ndarray or None
-            Dense profile vector of shape ``(n_features,)``, or ``None`` when
-            the user has no ratings on items present in the TF-IDF index.
+        np.ndarray or None
+            Vector profile dens ajustat de dimensions ``(n_features,)``, o ``None`` quan 
+            l'usuari manqui de qualsevol interacció indexable.
         """
         ratings = self._dataset.get_user_ratings(user_id)
         if not ratings or self._tfidf_matrix is None:
@@ -690,6 +836,25 @@ class ContentBasedRecommender(Recommender):
         return weighted_sum / total_weight
 
     def recommend(self, user_id: str, top_n: int = 5) -> List[Recommendation]:
+        """Genera els Top-N ítems recomanats basant-se en perfils de text TF-IDF.
+
+        Construeix el perfil de gustos de l'usuari fent una combinació lineal 
+        de les descripcions dels ítems consumits. Posteriorment, calcula el 
+        producte escalar amb els ítems no valorats, escalant el resultat final 
+        amb la valoració màxima admissible.
+
+        Parameters
+        ----------
+        user_id : str
+            Identificador de l'usuari objectiu de les recomanacions.
+        top_n : int, opcional
+            Nombre de recomanacions màximes sol·licitades. Per defecte és ``5``.
+
+        Returns
+        -------
+        list of tuple of (str, float)
+            Llista de parelles ``(item_id, score)`` sorted descendentment.
+        """
         if not self._is_prepared:
             self.prepare()
 
@@ -719,22 +884,24 @@ class ContentBasedRecommender(Recommender):
         return candidates[:top_n]
 
     def predict_rating(self, user_id: str, item_id: str) -> Optional[float]:
-        """Predict the rating *user_id* would give *item_id* via content similarity.
+        """Estima la valoració predita mitjançant el contingut del propi ítem.
 
-        The prediction is ``dot(user_profile, item_vector) * max_rating``.
+        Calcula el producte escalar directament entre el vector de paraules 
+        TF-IDF de l'ítem objectiu i el perfil d'interaccions dens de l'usuari, 
+        multiplicat per la nota màxima.
 
         Parameters
         ----------
         user_id : str
-            Target user identifier.
+            Identificador únic de l'usuari d'estudi.
         item_id : str
-            Item identifier to predict.
+            Identificador de l'ítem del qual es demana la predicció.
 
         Returns
         -------
         float or None
-            Predicted rating, or ``None`` when the item has no content vector
-            or the user has no ratable history.
+            Predicció en format float d'acord amb el contingut textual, o 
+            ``None`` si l'ítem no disposa de metadades o l'usuari no té historial.
         """
         if not self._is_prepared:
             self.prepare()

@@ -23,12 +23,21 @@ METHOD_LABELS = {
 
 
 def print_usage() -> None:
+    """Mostra per consola les instruccions del format d'ús correcte de l'script."""
     print("Us: python main.py <dataset> <metode>")
     print("  <dataset>: movies | books")
     print("  <metode>: simple | collaborative | content")
 
 
 def read_action() -> str:
+    """Mostra el menú d'opcions interactiu i en llegeix la decisió de l'usuari.
+
+    Returns
+    -------
+    str
+        Cadena normalitzada de l'acció a realitzar (``"recommend"``, ``"evaluate"``, 
+        ``"compare"``, ``"exit"`` o ``"invalid"``).
+    """
     print("\nAccions disponibles:")
     print("  1) Recomanar")
     print("  2) Avaluar")
@@ -52,16 +61,16 @@ def show_recommendations(
     recommendations: List[Tuple[str, float]],
     N: int = 5,
 ) -> None:
-    """Print the top-N recommendations for a user.
+    """Mostra per consola de manera formatejada el Top-N ítems recomanats per a un usuari.
 
     Parameters
     ----------
     dataset : Dataset
-        Dataset used to format item display strings.
-    recommendations : list of (str, float)
-        Ordered list of ``(item_id, score)`` pairs.
-    N : int, optional
-        Maximum number of recommendations to display.  Defaults to ``5``.
+        Conjunt de dades utilitzat per traduir i formatejar les metadades de l'ítem.
+    recommendations : list of tuple of (str, float)
+        Llista ordenada de parelles on cada element conté ``(item_id, puntuacio_score)``.
+    N : int, opcional
+        Nombre màxim de recomanacions a llistar per pantalla. Per defecte és ``5``.
     """
     if not recommendations:
         print("No hi ha recomanacions disponibles per aquest usuari.")
@@ -75,16 +84,16 @@ def show_recommendations(
 
 
 def show_evaluation(dataset: Dataset, recommender: Recommender, user_id: str) -> None:
-    """Compute and display MAE / RMSE for a user.
+    """Calcula i imprimeix les mètriques d'error MAE i RMSE per a un usuari concret.
 
     Parameters
     ----------
     dataset : Dataset
-        Dataset containing the ground-truth ratings.
+        Conjunt de dades que conté les valoracions reals (ground-truth).
     recommender : Recommender
-        Trained recommender to evaluate.
+        Instància del recomanador ja entrenat al qual es demanen les prediccions.
     user_id : str
-        Target user identifier.
+        Identificador de l'usuari que es vol avaluar.
     """
     print("\nCalculant metriques d'avaluacio (pot tardar uns segons)...")
     mae_score, rmse_score = evaluate_user(recommender, dataset, user_id)
@@ -99,21 +108,22 @@ def show_evaluation(dataset: Dataset, recommender: Recommender, user_id: str) ->
 
 
 def show_comparison(dataset: Dataset, user_id: str, logger, controller: Controller) -> None:
-    """Build all three recommenders and compare their MAE/RMSE for *user_id*.
+    """Construeix els tres mètodes de recomanació i en compara els errors MAE/RMSE gràficament.
 
-    For each method (Simple, Collaborative, Content) the recommender is
-    instantiated via :func:`~factories.Controller.build_recommender` (cached builds are
-    reused), evaluated with :func:`~evaluation.evaluate_user`, and the results
-    are printed as a table and displayed as a bar chart.
+    Cada tècnica (Simple, Col·laboratiu, Basat en contingut) s'instancia mitjançant el controlador
+    (reutilitzant construccions memoritzades de memòria cau si s'escau), s'avalua, es tabulen els 
+    resultats comparatius per pantalla i finalment es genera el gràfic de barres agrupades.
 
     Parameters
     ----------
     dataset : Dataset
-        Loaded dataset containing ground-truth ratings.
+        Conjunt de dades carregat amb el contingut de les interaccions reals.
     user_id : str
-        Target user identifier.
+        Identificador de l'usuari objectiu per a la comparació multimetòdica.
     logger : logging.Logger
-        Logger instance.
+        Instància del logger configurat pel seguiment de l'execució.
+    controller : Controller
+        Instància de la fàbrica de control encarregada d'instanciar els models.
     """
     print("\nComparant tots els metodes (pot tardar uns minuts)...")
 
@@ -154,21 +164,23 @@ def show_comparison(dataset: Dataset, user_id: str, logger, controller: Controll
 
 
 def load_dataset(project_root: str, dataset_key: str, logger, controller: Controller) -> Dataset:
-    """Load a dataset from CSV files.
+    """Carrega completament les metadades i valoracions d'un dataset mitjançant el controlador.
 
     Parameters
     ----------
     project_root : str
-        Absolute path to the project root directory.
+        Ruta absoluta al directori arrel on s'ubiquen els binaris i CSVs de dades.
     dataset_key : str
-        Short dataset identifier (e.g. ``"movies"``).
+        Clau identificadora alfanumèrica curta (p. ex. ``"movies"`` o ``"books"``).
     logger : logging.Logger
-        Logger instance.
+        Instància del logger de traces.
+    controller : Controller
+        Fàbrica de control encarregada de delegar i carregar la instància.
 
     Returns
     -------
     Dataset
-        Fully loaded dataset instance.
+        Instància del dataset completament inicialitzada i processada en memòria.
     """
     logger.info("Carregant dataset '%s' des de CSV...", dataset_key)
     dataset = controller.build_dataset(dataset_key, project_root)
@@ -176,19 +188,21 @@ def load_dataset(project_root: str, dataset_key: str, logger, controller: Contro
 
 
 def load_recommender(method_key: str, logger, controller: Controller) -> Recommender:
-    """Build (or restore from cache) a recommender for the given method and dataset.
+    """Inicialitza i entrena el motor de recomanació associat al mètode sol·licitat.
 
     Parameters
     ----------
     method_key : str
-        Short method identifier (e.g. ``"content"``).
+        Identificador de la tècnica algorísmica (p. ex. ``"content"``, ``"collaborative"``).
     logger : logging.Logger
-        Logger instance.
+        Instància del logger de traces.
+    controller : Controller
+        Instància d'un controlador actiu que conté el dataset prèviament vinculat.
 
     Returns
     -------
     Recommender
-        Prepared recommender instance.
+        Instància del motor de recomanació ja preparada per predir o recomanar.
     """
     logger.info("Inicialitzant recomanador '%s'...", method_key)
     recommender = controller.build_recommender(method_key)
@@ -201,21 +215,26 @@ def run_interactive_loop(
     logger,
     controller: Controller,
 ) -> int:
-    """Run the main interactive loop.
+    """Executa el bucle d'interacció principal de la interfície de text per consola.
+
+    Sol·licita contínuament IDs d'usuari i accions associades a realitzar sobre el
+    recomanador escollit fins que rep una instrucció expressa o línia buida de sortida.
 
     Parameters
     ----------
     dataset : Dataset
-        Loaded dataset.
+        Conjunt de dades objectiu amb el qual opera l'aplicació.
     recommender : Recommender
-        Prepared recommender.
+        Motor de recomanació triat durant el llançament inicial pel terminal.
     logger : logging.Logger
-        Logger instance.
+        Instància activa del logger de traces de l'aplicació.
+    controller : Controller
+        Instància del controlador de dades per a l'orquestració de consultes dinàmiques.
 
     Returns
     -------
     int
-        Exit code (``0`` for normal exit, ``1`` for errors).
+        Codi d'estat de sortida del procés de l'aplicació (``0`` per a una sortida normal).
     """
     while True:
         user_id = input("\nIntrodueix l'ID d'usuari (buit per sortir): ").strip()
@@ -258,6 +277,16 @@ def run_interactive_loop(
 
 
 def main() -> int:
+    """Punt d'entrada principal (main entrypoint) de l'aplicació en línia de comandes.
+
+    S'encarrega d'analitzar els paràmetres de la línia de comandes, instanciar el logger,
+    carregar les dades inicials i llançar el bucle interactiu de la consola.
+
+    Returns
+    -------
+    int
+        Codi de retorn de sortida del sistema (``0`` si és correcte, ``1`` si conté errors).
+    """
     if len(sys.argv) != 3:
         print_usage()
         return 1

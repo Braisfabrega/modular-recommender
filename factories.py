@@ -14,32 +14,50 @@ logger = logging.getLogger("recommender_system.factories")
 
 
 class Controller:
-    """Factory/controller for datasets and recommenders."""
+    """Controlador i fàbrica (Factory) per a la creació de datasets i recomanadors.
+
+    Attributes
+    ----------
+    _logger : logging.Logger
+        Instància del logger utilitzada per registrar traces de l'execució.
+    _dataset : Dataset or None
+        Instància de l'últim conjunt de dades instanciat i carregat.
+    _recommender : Recommender or None
+        Instància de l'últim sistema de recomanació preparat.
+    """
 
     def __init__(self, logger_instance: logging.Logger | None = None) -> None:
+        """Inicialitza el controlador i en configura el sistema de logging de traces.
+
+        Parameters
+        ----------
+        logger_instance : logging.Logger, opcional
+            Instància personalitzada de logging a utilitzar. Si és ``None``,
+            s'utilitzarà el logger genèric del mòdul per defecte.
+        """
         self._logger = logger_instance or logger
         self._dataset: Dataset | None = None
         self._recommender: Recommender | None = None
 
     def build_dataset(self, dataset_key: str, project_root: str) -> Dataset:
-        """Instantiate, load, and return the dataset for *dataset_key*.
+        """Instancia, carrega des de disc i retorna el dataset corresponent a *dataset_key*.
 
         Parameters
         ----------
         dataset_key : str
-            One of ``"movies"`` or ``"books"``.
+            Identificador del dataset. Ha de ser ``"movies"`` o ``"books"``.
         project_root : str
-            Absolute path to the project root directory.
+            Ruta absoluta al directori arrel del projecte on s'ubiquen els fitxers.
 
         Returns
         -------
         Dataset
-            Fully loaded dataset instance.
+            Instància del conjunt de dades completament carregada i a punt per fer servir.
 
         Raises
         ------
         ValueError
-            When *dataset_key* is not recognised.
+            Si el valor de *dataset_key* proporcionat no és reconegut pel sistema.
         """
         if dataset_key == "movies":
             dataset = MovieLensDataset(project_root)
@@ -57,22 +75,23 @@ class Controller:
         return dataset
 
     def build_recommender(self, method_key: str) -> Recommender:
-        """Instantiate, prepare, and return the recommender for *method_key*.
+        """Instancia, entrena/prepara i retorna el sistema de recomanació per a *method_key*.
 
         Parameters
         ----------
         method_key : str
-            One of ``"simple"``, ``"collaborative"``, or ``"content"``.
+            Identificador de la tècnica. Ha de ser ``"simple"``, ``"collaborative"`` o ``"content"``.
 
         Returns
         -------
         Recommender
-            Prepared recommender instance.
+            Instància del recomanador completament inicialitzada i preparada.
 
         Raises
         ------
         ValueError
-            When *method_key* is not recognised.
+            Si no s'ha carregat cap dataset prèviament o si el valor de *method_key*
+            no és cap de les opcions suportades.
         """
         if self._dataset is None:
             self._logger.error("No hi ha cap dataset carregat. Cal cridar build_dataset primer.")
