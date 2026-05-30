@@ -5,7 +5,7 @@ import sys
 from typing import List, Tuple
 from datasets import Dataset
 from evaluation import evaluate_user
-from factories import Controller
+from controller import Controller
 from logging_utils import build_logger
 from recommenders import Recommender
 
