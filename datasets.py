@@ -418,17 +418,7 @@ class MovieLensDataset(Dataset):
         self.load()
 
     def get_cache_key(self) -> str:
-        """Retorna una cadena única que identifica aquest dataset i la seva configuració.
-
-        S'utilitza per construir els noms de fitxer de la memòria cau (pickle) de manera
-        que les caches de diferents configuracions (p. ex. diferents valors de ``max_books``)
-        mai col·lideixin.
-
-        Returns
-        -------
-        str
-            Una clau alfanumèrica curta, p. ex. ``"movies"`` o ``"books_10000"``.
-        """
+        """Retorna ``'movies'`` com a clau fixa per identificar les cachés d'aquest dataset."""
         return "movies"
 
     def _load_items(self) -> None:
@@ -494,17 +484,18 @@ class MovieLensDataset(Dataset):
         )
 
     def format_item_for_display(self, item_id: str) -> str:
-        """Retorna una cadena de text formatejada i llegible per a humans per a un ``item_id``.
+        """Retorna la representació ``'<títol> | <gèneres>'`` per a la pel·lícula indicada.
 
         Parameters
         ----------
         item_id : str
-            Identificador de l'ítem a formatejar.
+            Identificador de la pel·lícula a formatejar.
 
         Returns
         -------
         str
-            Cadena de text de visualització formatejada.
+            Cadena amb el títol i els gèneres separats per ``|``
+            (p. ex. ``'Toy Story (1995) | Animation Children Comedy'``).
         """
         metadata = self.get_item_metadata(item_id)
         title = metadata.get("title", "Sense titol")
@@ -548,16 +539,9 @@ class BooksDataset(Dataset):
         self.load()
 
     def get_cache_key(self) -> str:
-        """Retorna una cadena única que identifica aquest dataset i la seva configuració.
+        """Retorna ``'books_N'`` (o ``'books_all'`` si no hi ha límit) com a clau de caché que incorpora el límit de llibres.
 
-        S'utilitza per construir els noms de fitxer de la memòria cau (pickle) de manera
-        que les caches de diferents configuracions (p. ex. diferents valors de ``max_books``)
-        mai col·lideixin.
-
-        Returns
-        -------
-        str
-            Una clau alfanumèrica curta, p. ex. ``"movies"`` o ``"books_10000"``.
+        Garanteix que cachés generades amb diferents valors de ``max_books`` mai col·lideixen.
         """
         suffix = "all" if self._max_books == 0 else str(self._max_books)
         return f"books_{suffix}"
@@ -697,17 +681,18 @@ class BooksDataset(Dataset):
         )
 
     def format_item_for_display(self, item_id: str) -> str:
-        """Retorna una cadena de text formatejada i llegible per a humans per a un ``item_id``.
+        """Retorna la representació ``'<títol> | <autor>'`` per al llibre indicat.
 
         Parameters
         ----------
         item_id : str
-            Identificador de l'ítem a formatejar.
+            ISBN del llibre a formatejar.
 
         Returns
         -------
         str
-            Cadena de text de visualització formatejada.
+            Cadena amb el títol i l'autor separats per ``|``
+            (p. ex. ``'Harry Potter | J.K. Rowling'``).
         """
         metadata = self.get_item_metadata(item_id)
         title = metadata.get("title", "Sense titol")

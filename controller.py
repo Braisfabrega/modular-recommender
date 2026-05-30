@@ -13,11 +13,13 @@ from recommenders import (
 
 logger = logging.getLogger("recommender_system.factories")
 
+#: Registre de constructors de datasets indexats per clau. Afegir una nova entrada n'amplia el suport sense modificar cap altre fitxer.
 _DATASET_BUILDERS: Dict[str, Callable[[str], Dataset]] = {
     "movies": lambda root: MovieLensDataset(root),
     "books": lambda root: BooksDataset(root, max_books=10_000),
 }
 
+#: Registre de constructors de recomanadors indexats per clau. Afegir una nova entrada n'amplia el suport sense modificar cap altre fitxer.
 _RECOMMENDER_BUILDERS: Dict[str, Callable[[Dataset], Recommender]] = {
     "simple": lambda ds: SimpleRecommender(ds, min_votes=10),
     "collaborative": lambda ds: CollaborativeRecommender(ds, k=5),

@@ -10,11 +10,14 @@ from logging_utils import build_logger
 from recommenders import Recommender
 
 
+#: Conjunt de claus de dataset acceptades com a primer argument de la CLI.
 VALID_DATASETS = {"movies", "books"}
+#: Conjunt de claus de mètode acceptades com a segon argument de la CLI.
 VALID_METHODS = {"simple", "collaborative", "content"}
 
-
+#: Ordre d'iteració dels mètodes en la comparació múltiple (show_comparison).
 ALL_METHODS = ["simple", "collaborative", "content"]
+#: Etiquetes llegibles per a cada mètode, usades a la taula comparativa.
 METHOD_LABELS = {
     "simple": "Simple",
     "collaborative": "Colaboratiu",

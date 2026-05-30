@@ -15,6 +15,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from datasets import Dataset
 
 
+#: Tupla ``(item_id, score)`` que representa una recomanació ordenada per puntuació.
 Recommendation = Tuple[str, float]
 
 
