@@ -109,7 +109,7 @@ def show_evaluation(dataset: Dataset, recommender: Recommender, user_id: str, to
         print("  No hi ha prediccions disponibles.")
 
     actual_ratings = dataset.get_user_ratings(user_id)
-    print(f"\nValoracionsde l'usuari {user_id}:")
+    print(f"\nValoracions de l'usuari {user_id}:")
     if actual_ratings:
         for item_id, rating in actual_ratings.items():
             item_info = dataset.format_item_for_display(item_id)
@@ -128,11 +128,11 @@ def show_evaluation(dataset: Dataset, recommender: Recommender, user_id: str, to
 
 
 def show_comparison(dataset: Dataset, user_id: str, logger, controller: Controller) -> None:
-    """Construeix els tres mètodes de recomanació i en compara els errors MAE/RMSE gràficament.
+    """Construeix els tres mètodes de recomanació i en compara els errors MAE/RMSE per consola.
 
     Cada tècnica (Simple, Col·laboratiu, Basat en contingut) s'instancia mitjançant el controlador
-    (reutilitzant construccions memoritzades de memòria cau si s'escau), s'avalua, es tabulen els 
-    resultats comparatius per pantalla i finalment es genera el gràfic de barres agrupades.
+    (reutilitzant construccions memoritzades de memòria cau si s'escau), s'avalua i es tabulen els
+    resultats comparatius per pantalla.
 
     Parameters
     ----------

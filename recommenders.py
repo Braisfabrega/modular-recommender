@@ -18,6 +18,11 @@ from datasets import Dataset
 Recommendation = Tuple[str, float]
 
 
+def _sort_by_score(items: List[Tuple[str, float]]) -> None:
+    """Ordena in-place la llista de parelles (id, score) per score descendent i id ascendent."""
+    items.sort(key=lambda x: (-x[1], x[0]))
+
+
 def _load_pickle_cache(cache_path: str, logger: logging.Logger) -> Optional[Any]:
     """Carrega un fitxer d'emmagatzematge serialitzat (pickle cache) des del disc.
 
@@ -100,9 +105,6 @@ class Recommender(ABC):
     ----------
     _dataset : Dataset
         Instància del conjunt de dades vinculada internament.
-    _is_prepared : bool
-        Indicador booleà. Esdevé ``True`` un cop el mètode :meth:`prepare` s'ha
-        completat satisfactòriament.
     _logger : logging.Logger
         Instància del registre de traces personalitzat amb el nom de la subclasse.
     """
@@ -110,7 +112,6 @@ class Recommender(ABC):
     def __init__(self, dataset: Dataset) -> None:
         """Inicialitza l'esquelet base del recomanador abstracte."""
         self._dataset = dataset
-        self._is_prepared = False
         self._logger = logging.getLogger(f"recommender_system.{self.__class__.__name__}")
 
     def _cache_path(self, filename: str) -> str:
@@ -233,6 +234,7 @@ class SimpleRecommender(Recommender):
         super().__init__(dataset)
         self._min_votes = min_votes
         self._item_scores: Dict[str, float] = {}
+        self.prepare()
 
     def prepare(self) -> None:
         """Calcula la puntuació Bayesiana de tots els ítems vàlids, recorrent a cache en disc."""
@@ -248,7 +250,6 @@ class SimpleRecommender(Recommender):
         cached = _load_pickle_cache(cache_path, self._logger)
         if isinstance(cached, dict) and "item_scores" in cached:
             self._item_scores = cached["item_scores"]
-            self._is_prepared = True
             self._logger.info(
                 "SimpleRecommender carregat des de caché (%d ítems puntuats).",
                 len(self._item_scores),
@@ -276,7 +277,6 @@ class SimpleRecommender(Recommender):
 
         self._item_scores = {}
         if total_rating_count == 0:
-            self._is_prepared = True
             self._logger.info("SimpleRecommender: cap ítem elegible, caché no es desa.")
             return
 
@@ -287,7 +287,6 @@ class SimpleRecommender(Recommender):
             self._item_scores[item_id] = score
 
         _save_pickle_cache(cache_path, {"item_scores": self._item_scores}, self._logger)
-        self._is_prepared = True
         self._logger.info(
             "SimpleRecommender preparat des de zero (%d ítems puntuats).",
             len(self._item_scores),
@@ -312,9 +311,6 @@ class SimpleRecommender(Recommender):
         list of tuple of (str, float)
             Llista ordenada descendentment de parelles ``(item_id, score)``.
         """
-        if not self._is_prepared:
-            self.prepare()
-
         rated_items = self._dataset.get_user_rated_items(user_id)
         candidates = [
             (item_id, score)
@@ -325,7 +321,7 @@ class SimpleRecommender(Recommender):
         if not candidates:
             return self._fallback_by_item_average(top_n, rated_items)
 
-        candidates.sort(key=lambda item: (-item[1], item[0]))
+        _sort_by_score(candidates)
         return candidates[:top_n]
 
     def predict_rating(self, user_id: str, item_id: str) -> Optional[float]:
@@ -347,8 +343,6 @@ class SimpleRecommender(Recommender):
             La puntuació Bayesiana precomputada, o ``None`` si l'ítem no té 
             prou vots per haver estat indexat a ``_item_scores``.
         """
-        if not self._is_prepared:
-            self.prepare()
         return self._item_scores.get(item_id)
 
 
@@ -384,6 +378,7 @@ class CollaborativeRecommender(Recommender):
         self._k = k
         self._user_means: Dict[str, float] = {}
         self._neighbors_cache: Optional[Dict[str, List[Tuple[str, float]]]] = None
+        self.prepare()
 
     def prepare(self) -> None:
         """Calcula les mitjanes dels usuaris i construeix el mapa d'afinitat de veïns."""
@@ -400,7 +395,6 @@ class CollaborativeRecommender(Recommender):
         if isinstance(cached, dict) and "user_means" in cached and "neighbors" in cached:
             self._user_means = cached["user_means"]
             self._neighbors_cache = cached["neighbors"]
-            self._is_prepared = True
             self._logger.info(
                 "CollaborativeRecommender carregat des de caché (%d usuaris, %d amb veïns).",
                 len(self._user_means),
@@ -422,12 +416,20 @@ class CollaborativeRecommender(Recommender):
             {"user_means": self._user_means, "neighbors": self._neighbors_cache},
             self._logger,
         )
-        self._is_prepared = True
         self._logger.info(
             "CollaborativeRecommender preparat des de zero (%d usuaris, %d amb veïns).",
             len(self._user_means),
             len(self._neighbors_cache),
         )
+
+    @staticmethod
+    def _cosine_sim(dot: float, norm_u: float, norm_v: float) -> Optional[float]:
+        """Retorna la similitud de cosinus o None si el denominador és zero o el resultat ≤ 0."""
+        denom = math.sqrt(norm_u) * math.sqrt(norm_v)
+        if denom == 0:
+            return None
+        sim = dot / denom
+        return sim if sim > 0 else None
 
     def _build_neighbors_cache(self) -> Dict[str, List[Tuple[str, float]]]:
         """Calcula eficientment de forma creuada la similitud de cosinus entre tots els usuaris.
@@ -462,14 +464,10 @@ class CollaborativeRecommender(Recommender):
         for user_id, neighbor_stats in stats.items():
             neighbors: List[Tuple[str, float]] = []
             for other_user, (dot, norm_u, norm_v) in neighbor_stats.items():
-                denominator = math.sqrt(norm_u) * math.sqrt(norm_v)
-                if denominator == 0:
-                    continue
-                similarity = dot / denominator
-                if similarity <= 0:
-                    continue
-                neighbors.append((other_user, similarity))
-            neighbors.sort(key=lambda item: (-item[1], item[0]))
+                sim = self._cosine_sim(dot, norm_u, norm_v)
+                if sim is not None:
+                    neighbors.append((other_user, sim))
+            _sort_by_score(neighbors)
             neighbors_cache[user_id] = neighbors[: self._k]
             self._logger.debug(
                 "Calculant similitud per a l'usuari %s: %d veïns seleccionats.",
@@ -513,15 +511,11 @@ class CollaborativeRecommender(Recommender):
 
         similarities: List[Tuple[str, float]] = []
         for other_user, dot in dot_products.items():
-            denominator = math.sqrt(norm_u[other_user]) * math.sqrt(norm_v[other_user])
-            if denominator == 0:
-                continue
-            similarity = dot / denominator
-            if similarity <= 0:
-                continue
-            similarities.append((other_user, similarity))
+            sim = self._cosine_sim(dot, norm_u[other_user], norm_v[other_user])
+            if sim is not None:
+                similarities.append((other_user, sim))
 
-        similarities.sort(key=lambda item: (-item[1], item[0]))
+        _sort_by_score(similarities)
         return similarities[: self._k]
 
     def _predict_for_user(
@@ -583,7 +577,7 @@ class CollaborativeRecommender(Recommender):
         if not predictions:
             return self._fallback_by_item_average(top_n, rated_items)
 
-        predictions.sort(key=lambda item: (-item[1], item[0]))
+        _sort_by_score(predictions)
         return predictions[:top_n]
 
     def recommend(self, user_id: str, top_n: int = 5) -> List[Recommendation]:
@@ -606,9 +600,6 @@ class CollaborativeRecommender(Recommender):
         list of tuple of (str, float)
             Llista de les millors recomanacions ordenades de manera descendent.
         """
-        if not self._is_prepared:
-            self.prepare()
-
         if user_id not in self._user_means:
             return self._fallback_by_item_average(top_n, self._dataset.get_user_rated_items(user_id))
 
@@ -639,9 +630,6 @@ class CollaborativeRecommender(Recommender):
             Predicció numèrica estimada clampada, o ``None`` si l'usuari no és 
             vàlid, no té veïns, o cap dels seus veïns ha puntuat aquest ítem.
         """
-        if not self._is_prepared:
-            self.prepare()
-
         avg_u = self._user_means.get(user_id)
         if avg_u is None:
             return None
@@ -703,6 +691,7 @@ class ContentBasedRecommender(Recommender):
         self._vectorizer: Optional[TfidfVectorizer] = None
         self._item_index: Dict[str, int] = {}
         self._index_item: List[str] = []
+        self.prepare()
 
     def prepare(self) -> None:
         """Ajusta l'extractor TfidfVectorizer analitzant totes les descripcions de text textuals."""
@@ -723,7 +712,6 @@ class ContentBasedRecommender(Recommender):
             self._tfidf_matrix = cached["tfidf_matrix"]
             self._item_index = cached["item_index"]
             self._index_item = cached["index_item"]
-            self._is_prepared = True
             self._logger.info(
                 "ContentBasedRecommender carregat des de caché "
                 "(%d ítems indexats, %d característiques TF-IDF).",
@@ -745,7 +733,6 @@ class ContentBasedRecommender(Recommender):
                 valid_ids.append(item_id)
 
         if not texts:
-            self._is_prepared = True
             self._logger.info("ContentBasedRecommender: cap text de contingut disponible, caché no es desa.")
             return
 
@@ -767,7 +754,6 @@ class ContentBasedRecommender(Recommender):
             },
             self._logger,
         )
-        self._is_prepared = True
         self._logger.info(
             "ContentBasedRecommender preparat des de zero "
             "(%d ítems indexats, %d característiques TF-IDF).",
@@ -855,9 +841,6 @@ class ContentBasedRecommender(Recommender):
         list of tuple of (str, float)
             Llista de parelles ``(item_id, score)`` sorted descendentment.
         """
-        if not self._is_prepared:
-            self.prepare()
-
         rated_items = self._dataset.get_user_rated_items(user_id)
 
         if self._tfidf_matrix is None:
@@ -880,7 +863,7 @@ class ContentBasedRecommender(Recommender):
         if not candidates:
             return self._fallback_by_item_average(top_n, rated_items)
 
-        candidates.sort(key=lambda x: (-x[1], x[0]))
+        _sort_by_score(candidates)
         return candidates[:top_n]
 
     def predict_rating(self, user_id: str, item_id: str) -> Optional[float]:
@@ -903,9 +886,6 @@ class ContentBasedRecommender(Recommender):
             Predicció en format float d'acord amb el contingut textual, o 
             ``None`` si l'ítem no disposa de metadades o l'usuari no té historial.
         """
-        if not self._is_prepared:
-            self.prepare()
-
         if self._tfidf_matrix is None:
             return None
 

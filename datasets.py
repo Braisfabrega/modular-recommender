@@ -415,6 +415,7 @@ class MovieLensDataset(Dataset):
         """Inicialitza les rutes d'instància de MovieLens i les seves propietats."""
         super().__init__(project_root, "movies")
         self._dataset_dir = os.path.join(project_root, "dataset", "MovieLens100k")
+        self.load()
 
     def get_cache_key(self) -> str:
         """Retorna una cadena única que identifica aquest dataset i la seva configuració.
@@ -540,10 +541,11 @@ class BooksDataset(Dataset):
     """
 
     def __init__(self, project_root: str, max_books: int = 10_000) -> None:
-        """Inicialitza les variables d'instància de Books i l'estructura de directoris d'emmagatzematge."""
+        """Inicialitza les variables d'instència de Books i l'estructura de directoris d'emmagatzematge."""
         super().__init__(project_root, "books")
         self._dataset_dir = os.path.join(project_root, "dataset", "Books")
         self._max_books = max_books
+        self.load()
 
     def get_cache_key(self) -> str:
         """Retorna una cadena única que identifica aquest dataset i la seva configuració.

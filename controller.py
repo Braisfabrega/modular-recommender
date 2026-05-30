@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Callable, Dict
 
 from datasets import BooksDataset, Dataset, MovieLensDataset
 from recommenders import (
@@ -11,6 +12,17 @@ from recommenders import (
 )
 
 logger = logging.getLogger("recommender_system.factories")
+
+_DATASET_BUILDERS: Dict[str, Callable[[str], Dataset]] = {
+    "movies": lambda root: MovieLensDataset(root),
+    "books": lambda root: BooksDataset(root, max_books=10_000),
+}
+
+_RECOMMENDER_BUILDERS: Dict[str, Callable[[Dataset], Recommender]] = {
+    "simple": lambda ds: SimpleRecommender(ds, min_votes=10),
+    "collaborative": lambda ds: CollaborativeRecommender(ds, k=5),
+    "content": lambda ds: ContentBasedRecommender(ds),
+}
 
 
 class Controller:
@@ -40,7 +52,7 @@ class Controller:
         self._recommender: Recommender | None = None
 
     def build_dataset(self, dataset_key: str, project_root: str) -> Dataset:
-        """Instancia, carrega des de disc i retorna el dataset corresponent a *dataset_key*.
+        """Instancia i retorna el dataset corresponent a *dataset_key*.
 
         Parameters
         ----------
@@ -59,23 +71,21 @@ class Controller:
         ValueError
             Si el valor de *dataset_key* proporcionat no és reconegut pel sistema.
         """
-        if dataset_key == "movies":
-            dataset = MovieLensDataset(project_root)
-        elif dataset_key == "books":
-            dataset = BooksDataset(project_root, max_books=10_000)
-        else:
+        builder = _DATASET_BUILDERS.get(dataset_key)
+        if builder is None:
             self._logger.error(
-                "Error: el dataset '%s' no és suportat. Opcions vàlides: movies, books.",
+                "Error: el dataset '%s' no és suportat. Opcions vàlides: %s.",
                 dataset_key,
+                ", ".join(_DATASET_BUILDERS),
             )
             raise ValueError(f"Dataset no suportat: {dataset_key}")
 
-        dataset.load()
+        dataset = builder(project_root)
         self._dataset = dataset
         return dataset
 
     def build_recommender(self, method_key: str) -> Recommender:
-        """Instancia, entrena/prepara i retorna el sistema de recomanació per a *method_key*.
+        """Instancia i retorna el sistema de recomanació per a *method_key*.
 
         Parameters
         ----------
@@ -97,20 +107,15 @@ class Controller:
             self._logger.error("No hi ha cap dataset carregat. Cal cridar build_dataset primer.")
             raise ValueError("Dataset no carregat")
 
-        dataset = self._dataset
-        if method_key == "simple":
-            recommender = SimpleRecommender(dataset, min_votes=10)
-        elif method_key == "collaborative":
-            recommender = CollaborativeRecommender(dataset, k=5)
-        elif method_key == "content":
-            recommender = ContentBasedRecommender(dataset)
-        else:
+        builder = _RECOMMENDER_BUILDERS.get(method_key)
+        if builder is None:
             self._logger.error(
-                "Error: el mètode '%s' no és suportat. Opcions vàlides: simple, collaborative, content.",
+                "Error: el mètode '%s' no és suportat. Opcions vàlides: %s.",
                 method_key,
+                ", ".join(_RECOMMENDER_BUILDERS),
             )
             raise ValueError(f"Metode no suportat: {method_key}")
 
-        recommender.prepare()
+        recommender = builder(self._dataset)
         self._recommender = recommender
         return recommender
