@@ -3,8 +3,6 @@ from __future__ import annotations
 import math
 from typing import Dict, List, Optional, Tuple
 
-import matplotlib.pyplot as plt
-
 from datasets import Dataset
 from recommenders import Recommender
 
@@ -108,81 +106,29 @@ def evaluate_user(
     return mae(preds, acts), rmse(preds, acts)
 
 
-def plot_evaluation(
+def print_evaluation(
+    user_id: str,
     mae_dict: Dict[str, float],
     rmse_dict: Dict[str, float],
 ) -> None:
-    """Mostra un gràfic de barres agrupades comparant les mètriques MAE i RMSE entre recomanadors.
+    """Mostra per consola una taula comparativa de les mètriques MAE i RMSE entre recomanadors.
 
     Parameters
     ----------
+    user_id : str
+        Identificador de l'usuari avaluat.
     mae_dict : dict[str, float]
         Diccionari que mapeja el nom d'un recomanador amb el seu Error Absolut Mitjà.
     rmse_dict : dict[str, float]
-        Diccionari que mapeja el nom d'un recomanador com el seu Arrel de l'Error Quadràtic Mitjà.
-        Les claus d'aquest diccionari han de coincidir exactament amb les de *mae_dict*.
-
-    Notes
-    -----
-    La funció crida internament a ``plt.show()`` per obrir el gràfic en una finestra independent
-    (o renderitzar-lo directament en línia si s'executa en un entorn de Jupyter Notebook).
+        Diccionari que mapeja el nom d'un recomanador amb el seu Arrel de l'Error Quadràtic Mitjà.
+        Les claus han de coincidir exactament amb les de *mae_dict*.
 
     Examples
     --------
-    >>> plot_evaluation({"SVD": 0.72, "KNN": 0.85}, {"SVD": 0.91, "KNN": 1.02})
+    >>> print_evaluation("1", {"SVD": 0.72, "KNN": 0.85}, {"SVD": 0.91, "KNN": 1.02})
     """
-    labels = list(mae_dict.keys())
-    mae_values = [mae_dict[k] for k in labels]
-    rmse_values = [rmse_dict[k] for k in labels]
-
-    x = range(len(labels))
-    bar_width = 0.35
-
-    _, ax = plt.subplots(figsize=(max(6, len(labels) * 1.5), 5))
-
-    bars_mae = ax.bar(
-        [i - bar_width / 2 for i in x],
-        mae_values,
-        width=bar_width,
-        label="MAE",
-        color="#4C72B0",
-    )
-    bars_rmse = ax.bar(
-        [i + bar_width / 2 for i in x],
-        rmse_values,
-        width=bar_width,
-        label="RMSE",
-        color="#DD8452",
-    )
-
-    # Annotate each bar with its numeric value
-    for bar in bars_mae:
-        ax.text(
-            bar.get_x() + bar.get_width() / 2,
-            bar.get_height() + 0.005,
-            f"{bar.get_height():.4f}",
-            ha="center",
-            va="bottom",
-            fontsize=9,
-        )
-    for bar in bars_rmse:
-        ax.text(
-            bar.get_x() + bar.get_width() / 2,
-            bar.get_height() + 0.005,
-            f"{bar.get_height():.4f}",
-            ha="center",
-            va="bottom",
-            fontsize=9,
-        )
-
-    ax.set_xticks(list(x))
-    ax.set_xticklabels(labels, fontsize=11)
-    ax.set_ylabel("Error", fontsize=11)
-    ax.set_title("Evaluation: MAE and RMSE by Recommender", fontsize=13)
-    ax.legend()
-    ax.set_ylim(0, max(rmse_values + mae_values) * 1.25)
-    ax.yaxis.grid(True, linestyle="--", alpha=0.6)
-    ax.set_axisbelow(True)
-
-    plt.tight_layout()
-    plt.show()
+    print(f"\nResultats de comparacio per l'usuari {user_id}:")
+    print(f"  {'Metode':<15} {'MAE':>8} {'RMSE':>8}")
+    print(f"  {'-'*15} {'-'*8} {'-'*8}")
+    for name in mae_dict:
+        print(f"  {name:<15} {mae_dict[name]:>8.4f} {rmse_dict[name]:>8.4f}")

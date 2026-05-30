@@ -1,0 +1,42 @@
+2026-05-30 12:32:17,668 | DEBUG    | recommender_system | Logger inicialitzat. Fitxer de log: /home/e.bfabregaf/code/prog/projecte/projectePA/logs/log_20260530-123217.txt
+2026-05-30 12:32:17,668 | INFO     | recommender_system | Inici aplicacio. dataset=movies, metode=content
+2026-05-30 12:32:17,668 | INFO     | recommender_system | Carregant dataset 'movies' des de CSV...
+2026-05-30 12:32:17,695 | INFO     | recommender_system.MovieLensDataset | CSV de pel·lícules carregat correctament: 9742 items des de '/home/e.bfabregaf/code/prog/projecte/projectePA/dataset/MovieLens100k/movies.csv'.
+2026-05-30 12:32:17,911 | INFO     | recommender_system.MovieLensDataset | CSV de valoracions carregat correctament: 100836 valoracions, 610 usuaris únics des de '/home/e.bfabregaf/code/prog/projecte/projectePA/dataset/MovieLens100k/ratings.csv'.
+2026-05-30 12:32:17,918 | INFO     | recommender_system | Inicialitzant recomanador 'content'...
+2026-05-30 12:32:17,918 | INFO     | recommender_system.ContentBasedRecommender | Preparant ContentBasedRecommender per al dataset 'movies'...
+2026-05-30 12:32:17,923 | INFO     | recommender_system.ContentBasedRecommender | Caché HIT — carregat des de: /home/e.bfabregaf/code/prog/projecte/projectePA/dataset/cache/content_movies.pkl
+2026-05-30 12:32:17,923 | INFO     | recommender_system.ContentBasedRecommender | ContentBasedRecommender carregat des de caché (9742 ítems indexats, 24 característiques TF-IDF).
+2026-05-30 12:32:32,123 | INFO     | recommender_system | Accio Recomanar per usuari 1.
+2026-05-30 12:32:35,608 | INFO     | recommender_system | Accio Avaluar per usuari 1.
+2026-05-30 12:36:01,533 | INFO     | recommender_system | Accio Comparar tots els metodes per usuari 1.
+2026-05-30 12:36:01,534 | INFO     | recommender_system.SimpleRecommender | Preparant SimpleRecommender per al dataset 'movies' (min_votes=10)...
+2026-05-30 12:36:01,536 | INFO     | recommender_system.SimpleRecommender | Caché HIT — carregat des de: /home/e.bfabregaf/code/prog/projecte/projectePA/dataset/cache/simple_movies_minvotes10.pkl
+2026-05-30 12:36:01,536 | INFO     | recommender_system.SimpleRecommender | SimpleRecommender carregat des de caché (2269 ítems puntuats).
+2026-05-30 12:36:01,537 | INFO     | recommender_system.CollaborativeRecommender | Preparant CollaborativeRecommender per al dataset 'movies' (k=5)...
+2026-05-30 12:36:01,538 | INFO     | recommender_system.CollaborativeRecommender | Caché HIT — carregat des de: /home/e.bfabregaf/code/prog/projecte/projectePA/dataset/cache/collaborative_movies_k5.pkl
+2026-05-30 12:36:01,538 | INFO     | recommender_system.CollaborativeRecommender | CollaborativeRecommender carregat des de caché (610 usuaris, 610 amb veïns).
+2026-05-30 12:36:01,538 | INFO     | recommender_system.ContentBasedRecommender | Preparant ContentBasedRecommender per al dataset 'movies'...
+2026-05-30 12:36:01,540 | INFO     | recommender_system.ContentBasedRecommender | Caché HIT — carregat des de: /home/e.bfabregaf/code/prog/projecte/projectePA/dataset/cache/content_movies.pkl
+2026-05-30 12:36:01,540 | INFO     | recommender_system.ContentBasedRecommender | ContentBasedRecommender carregat des de caché (9742 ítems indexats, 24 característiques TF-IDF).
+2026-05-30 12:38:13,149 | INFO     | recommender_system | Accio Comparar tots els metodes per usuari 1.
+2026-05-30 12:38:13,149 | INFO     | recommender_system.SimpleRecommender | Preparant SimpleRecommender per al dataset 'movies' (min_votes=10)...
+2026-05-30 12:38:13,149 | INFO     | recommender_system.SimpleRecommender | Caché HIT — carregat des de: /home/e.bfabregaf/code/prog/projecte/projectePA/dataset/cache/simple_movies_minvotes10.pkl
+2026-05-30 12:38:13,149 | INFO     | recommender_system.SimpleRecommender | SimpleRecommender carregat des de caché (2269 ítems puntuats).
+2026-05-30 12:38:13,150 | INFO     | recommender_system.CollaborativeRecommender | Preparant CollaborativeRecommender per al dataset 'movies' (k=5)...
+2026-05-30 12:38:13,151 | INFO     | recommender_system.CollaborativeRecommender | Caché HIT — carregat des de: /home/e.bfabregaf/code/prog/projecte/projectePA/dataset/cache/collaborative_movies_k5.pkl
+2026-05-30 12:38:13,151 | INFO     | recommender_system.CollaborativeRecommender | CollaborativeRecommender carregat des de caché (610 usuaris, 610 amb veïns).
+2026-05-30 12:38:13,151 | INFO     | recommender_system.ContentBasedRecommender | Preparant ContentBasedRecommender per al dataset 'movies'...
+2026-05-30 12:38:13,153 | INFO     | recommender_system.ContentBasedRecommender | Caché HIT — carregat des de: /home/e.bfabregaf/code/prog/projecte/projectePA/dataset/cache/content_movies.pkl
+2026-05-30 12:38:13,153 | INFO     | recommender_system.ContentBasedRecommender | ContentBasedRecommender carregat des de caché (9742 ítems indexats, 24 característiques TF-IDF).
+2026-05-30 12:39:29,489 | INFO     | recommender_system | Accio Comparar tots els metodes per usuari 1.
+2026-05-30 12:39:29,490 | INFO     | recommender_system.SimpleRecommender | Preparant SimpleRecommender per al dataset 'movies' (min_votes=10)...
+2026-05-30 12:39:29,491 | INFO     | recommender_system.SimpleRecommender | Caché HIT — carregat des de: /home/e.bfabregaf/code/prog/projecte/projectePA/dataset/cache/simple_movies_minvotes10.pkl
+2026-05-30 12:39:29,491 | INFO     | recommender_system.SimpleRecommender | SimpleRecommender carregat des de caché (2269 ítems puntuats).
+2026-05-30 12:39:29,492 | INFO     | recommender_system.CollaborativeRecommender | Preparant CollaborativeRecommender per al dataset 'movies' (k=5)...
+2026-05-30 12:39:29,494 | INFO     | recommender_system.CollaborativeRecommender | Caché HIT — carregat des de: /home/e.bfabregaf/code/prog/projecte/projectePA/dataset/cache/collaborative_movies_k5.pkl
+2026-05-30 12:39:29,494 | INFO     | recommender_system.CollaborativeRecommender | CollaborativeRecommender carregat des de caché (610 usuaris, 610 amb veïns).
+2026-05-30 12:39:29,495 | INFO     | recommender_system.ContentBasedRecommender | Preparant ContentBasedRecommender per al dataset 'movies'...
+2026-05-30 12:39:29,496 | INFO     | recommender_system.ContentBasedRecommender | Caché HIT — carregat des de: /home/e.bfabregaf/code/prog/projecte/projectePA/dataset/cache/content_movies.pkl
+2026-05-30 12:39:29,496 | INFO     | recommender_system.ContentBasedRecommender | ContentBasedRecommender carregat des de caché (9742 ítems indexats, 24 característiques TF-IDF).
+2026-05-30 12:40:50,668 | INFO     | recommender_system | Accio Avaluar per usuari 1.

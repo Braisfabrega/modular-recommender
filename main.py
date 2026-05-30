@@ -4,7 +4,7 @@ import os
 import sys
 from typing import List, Tuple
 from datasets import Dataset
-from evaluation import evaluate_user, plot_evaluation
+from evaluation import evaluate_user
 from factories import Controller
 from logging_utils import build_logger
 from recommenders import Recommender
@@ -83,8 +83,8 @@ def show_recommendations(
         print(f"{idx}. {item_info} (id={item_id}, score={score:.3f})")
 
 
-def show_evaluation(dataset: Dataset, recommender: Recommender, user_id: str) -> None:
-    """Calcula i imprimeix les mètriques d'error MAE i RMSE per a un usuari concret.
+def show_evaluation(dataset: Dataset, recommender: Recommender, user_id: str, top_n: int = 5) -> None:
+    """Mostra les top-N prediccions, les valoracions reals i les mètriques MAE/RMSE per a un usuari.
 
     Parameters
     ----------
@@ -94,15 +94,35 @@ def show_evaluation(dataset: Dataset, recommender: Recommender, user_id: str) ->
         Instància del recomanador ja entrenat al qual es demanen les prediccions.
     user_id : str
         Identificador de l'usuari que es vol avaluar.
+    top_n : int, opcional
+        Nombre màxim de prediccions a mostrar. Per defecte és ``5``.
     """
     print("\nCalculant metriques d'avaluacio (pot tardar uns segons)...")
-    mae_score, rmse_score = evaluate_user(recommender, dataset, user_id)
 
+    recommendations = recommender.recommend(user_id=user_id, top_n=top_n)
+    print(f"\nTop {top_n} prediccions per l'usuari {user_id}:")
+    if recommendations:
+        for idx, (item_id, score) in enumerate(recommendations, start=1):
+            item_info = dataset.format_item_for_display(item_id)
+            print(f"  {idx}. {item_info} (id={item_id}, prediccio={score:.4f})")
+    else:
+        print("  No hi ha prediccions disponibles.")
+
+    actual_ratings = dataset.get_user_ratings(user_id)
+    print(f"\nValoracionsde l'usuari {user_id}:")
+    if actual_ratings:
+        for item_id, rating in actual_ratings.items():
+            item_info = dataset.format_item_for_display(item_id)
+            print(f"  {item_info} (id={item_id}, valoracio={rating:.1f})")
+    else:
+        print("  No hi ha valoracions disponibles.")
+
+    mae_score, rmse_score = evaluate_user(recommender, dataset, user_id)
     if mae_score is None or rmse_score is None:
-        print("No s'han pogut calcular les metriques per aquest usuari.")
+        print("\nNo s'han pogut calcular les metriques per aquest usuari.")
         return
 
-    print(f"\nResultats per l'usuari {user_id}:")
+    print(f"\nMesures de comparacio per l'usuari {user_id}:")
     print(f"  MAE  = {mae_score:.4f}")
     print(f"  RMSE = {rmse_score:.4f}")
 
@@ -160,7 +180,6 @@ def show_comparison(dataset: Dataset, user_id: str, logger, controller: Controll
     for label in mae_dict:
         print(f"  {label:<{col_w}} {mae_dict[label]:>8.4f} {rmse_dict[label]:>8.4f}")
 
-    plot_evaluation(mae_dict, rmse_dict)
 
 
 def load_dataset(project_root: str, dataset_key: str, logger, controller: Controller) -> Dataset:
