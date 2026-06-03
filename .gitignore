@@ -1,0 +1,26 @@
+# Datasets
+dataset/Books/
+dataset/MovieLens100k/
+dataset/cache/
+
+# Logs
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
